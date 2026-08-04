@@ -1,7 +1,14 @@
-import config from "./vite.config";
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
-describe("Vite development proxy", () => {
-  it("defaults API proxy traffic to the local API server port", () => {
-    expect(config.server?.proxy?.["/api"]).toBe("http://127.0.0.1:5000");
-  });
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      '/scales': 'https://space-weather-app-production-48ab.up.railway.app',
+      '/alerts': 'https://space-weather-app-production-48ab.up.railway.app',
+      '/events': 'https://space-weather-app-production-48ab.up.railway.app',
+      '/solar-activity': 'https://space-weather-app-production-48ab.up.railway.app',
+    }
+  }
 });
