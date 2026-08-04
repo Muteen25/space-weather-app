@@ -1,14 +1,14 @@
-import { defineConfig } from "vitest/config";
-import react from "@vitejs/plugin-react";
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  test: {
-    environment: "jsdom",
-    globals: true,
-    setupFiles: ["src/test/setup.ts"],
-    coverage: {
-      reporter: ["text", "html"]
+  server: {
+    proxy: {
+      '/scales': 'https://space-weather-app-production-48ab.up.railway.app',
+      '/alerts': 'https://space-weather-app-production-48ab.up.railway.app',
+      '/events': 'https://space-weather-app-production-48ab.up.railway.app',
+      '/solar-activity': 'https://space-weather-app-production-48ab.up.railway.app',
     }
   }
 });
