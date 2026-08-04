@@ -1,6 +1,9 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import App from "./App";
 
+const API_BASE_URL = "https://space-weather-app-production-48ab.up.railway.app";
+const apiUrl = (endpoint: string) => `${API_BASE_URL}${endpoint}`;
+
 const dashboardResponse = {
   condition: "Active",
   overallSeverity: "moderate",
@@ -322,7 +325,7 @@ describe("Space Weather dashboard", () => {
     expect(screen.queryByRole("link", { name: "View Phenomena" })).not.toBeInTheDocument();
     expect(screen.getByRole("list", { name: "Space weather phenomena" })).toBeInTheDocument();
     expect(screen.queryByText("Loading live space weather snapshot")).not.toBeInTheDocument();
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/dashboard/summary"));
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(apiUrl("/api/dashboard/summary")));
   });
 
   it("renders the phase 2 dashboard sections from live-source API data", async () => {
@@ -473,8 +476,8 @@ describe("Space Weather dashboard", () => {
     fireEvent.click(screen.getByRole("button", { name: "2h" }));
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith("/api/solar-wind?range=2h");
-      expect(fetch).toHaveBeenCalledWith("/api/magnetic-field?range=2h");
+      expect(fetch).toHaveBeenCalledWith(apiUrl("/api/solar-wind?range=2h"));
+      expect(fetch).toHaveBeenCalledWith(apiUrl("/api/magnetic-field?range=2h"));
     });
     expect(screen.getByRole("button", { name: "2h" })).toHaveAttribute("aria-pressed", "true");
   });

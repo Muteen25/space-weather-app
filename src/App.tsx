@@ -53,6 +53,7 @@ import {
   Zap
 } from "lucide-react";
 
+import { getApiUrl } from "./apiConfig";
 import { InteractiveStarField } from "./components/InteractiveStarField";
 import "./styles.css";
 
@@ -4039,7 +4040,7 @@ function EventDetailDrawer({ event, onClear }: { event: TimelineEvent | null; on
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url);
+  const response = await fetch(getApiUrl(url));
 
   if (!response.ok) {
     throw new Error(`Request failed: ${response.status}`);
