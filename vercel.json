@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://space-weather-app-production-48ab.up.railway.app/api/$1" },
+    { "source": "/api/(.*)", "destination": "https://space-weather-app-production-48ab.up.railway.app/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
