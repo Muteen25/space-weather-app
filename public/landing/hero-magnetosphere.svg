@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 900" role="img" aria-labelledby="title desc">
+  <title id="title">Earth magnetosphere and solar wind</title>
+  <desc id="desc">Earth surrounded by magnetic field lines while solar wind streams through space.</desc>
+  <defs>
+    <radialGradient id="bg" cx="68%" cy="45%" r="82%">
+      <stop offset="0" stop-color="#132b5f"/>
+      <stop offset=".42" stop-color="#07152f"/>
+      <stop offset="1" stop-color="#030712"/>
+    </radialGradient>
+    <radialGradient id="earth" cx="45%" cy="38%" r="58%">
+      <stop offset="0" stop-color="#bae6fd"/>
+      <stop offset=".32" stop-color="#2563eb"/>
+      <stop offset=".72" stop-color="#064e3b"/>
+      <stop offset="1" stop-color="#031827"/>
+    </radialGradient>
+    <linearGradient id="wind" x1="0" x2="1">
+      <stop offset="0" stop-color="#f97316"/>
+      <stop offset=".48" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#22c55e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1800" height="900" fill="url(#bg)"/>
+  <g fill="#dbeafe" opacity=".48">
+    <circle cx="136" cy="158" r="2"/>
+    <circle cx="372" cy="278" r="2.3"/>
+    <circle cx="734" cy="110" r="1.8"/>
+    <circle cx="1018" cy="246" r="2"/>
+    <circle cx="1398" cy="170" r="2.4"/>
+    <circle cx="1610" cy="438" r="1.8"/>
+    <circle cx="1186" cy="720" r="2.2"/>
+  </g>
+  <path d="M-80 232C310 138 610 178 932 278c294 92 548 114 948-34" fill="none" stroke="url(#wind)" stroke-width="12" stroke-linecap="round" opacity=".56"/>
+  <path d="M-60 348c366-80 670-34 980 70 302 102 574 134 960-10" fill="none" stroke="url(#wind)" stroke-width="8" stroke-linecap="round" opacity=".42"/>
+  <path d="M-70 492c382-88 704-42 1034 62 300 96 558 126 914 2" fill="none" stroke="url(#wind)" stroke-width="10" stroke-linecap="round" opacity=".46"/>
+  <path d="M-80 640c384-92 722-50 1068 50 304 88 560 98 892-28" fill="none" stroke="url(#wind)" stroke-width="7" stroke-linecap="round" opacity=".34"/>
+  <circle cx="1250" cy="456" r="170" fill="url(#earth)"/>
+  <path d="M1250 208c-210 48-330 136-330 248s120 200 330 248" fill="none" stroke="#93c5fd" stroke-width="4" opacity=".58"/>
+  <path d="M1250 166c-290 64-460 176-460 290s170 226 460 290" fill="none" stroke="#7dd3fc" stroke-width="3" opacity=".42"/>
+  <path d="M1250 116c-380 76-602 208-602 340s222 264 602 340" fill="none" stroke="#bfdbfe" stroke-width="2" opacity=".32"/>
+  <path d="M1320 252c206 44 356 116 458 214" fill="none" stroke="#93c5fd" stroke-width="3" opacity=".34"/>
+  <path d="M1320 660c214-42 366-104 462-194" fill="none" stroke="#93c5fd" stroke-width="3" opacity=".34"/>
+</svg>

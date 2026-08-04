@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 900" role="img" aria-labelledby="title desc">
+  <title id="title">Solar atmosphere over deep space</title>
+  <desc id="desc">A bright solar disk with coronal loops, stars, and faint orbital tracks.</desc>
+  <defs>
+    <radialGradient id="space" cx="66%" cy="42%" r="82%">
+      <stop offset="0" stop-color="#12336a"/>
+      <stop offset="0.42" stop-color="#081638"/>
+      <stop offset="1" stop-color="#020617"/>
+    </radialGradient>
+    <radialGradient id="sun" cx="50%" cy="48%" r="52%">
+      <stop offset="0" stop-color="#fff7ad"/>
+      <stop offset="0.32" stop-color="#ff9f2f"/>
+      <stop offset="0.66" stop-color="#e83f18"/>
+      <stop offset="1" stop-color="#7f1230"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="24" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="1800" height="900" fill="url(#space)"/>
+  <g opacity=".55" fill="#dbeafe">
+    <circle cx="210" cy="120" r="2"/>
+    <circle cx="430" cy="236" r="2.4"/>
+    <circle cx="760" cy="94" r="1.8"/>
+    <circle cx="1060" cy="190" r="2"/>
+    <circle cx="1370" cy="118" r="2.2"/>
+    <circle cx="1560" cy="310" r="1.8"/>
+    <circle cx="1470" cy="626" r="2.5"/>
+    <circle cx="980" cy="710" r="2"/>
+    <circle cx="610" cy="660" r="1.6"/>
+  </g>
+  <path d="M-40 725C210 590 438 618 640 492c208-130 438-358 768-310 190 28 344 118 476 238" fill="none" stroke="#20d3ee" stroke-width="5" opacity=".28"/>
+  <path d="M-80 770C178 648 388 706 612 574c248-146 436-414 798-378 174 18 334 84 470 184" fill="none" stroke="#9de7ff" stroke-width="2" opacity=".2"/>
+  <circle cx="1284" cy="462" r="214" fill="url(#sun)" filter="url(#glow)"/>
+  <path d="M1135 378c56-38 125-40 205-6 64 27 118 22 162-14" fill="none" stroke="#fff7c2" stroke-width="5" stroke-linecap="round" opacity=".68"/>
+  <path d="M1158 536c75 52 160 58 252 16" fill="none" stroke="#fff7c2" stroke-width="5" stroke-linecap="round" opacity=".6"/>
+  <path d="M1198 279c105-100 270-90 360 26" fill="none" stroke="#ffce6a" stroke-width="20" stroke-linecap="round" opacity=".18"/>
+</svg>
