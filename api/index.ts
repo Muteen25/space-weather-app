@@ -1,7 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Enable CORS if needed
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -11,21 +10,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const url = new URL(req.url || '', `https://${req.headers.host}`);
-  const pathname = url.pathname.replace(/^\/api/, ''); // Strip /api prefix if matched by vercel rewrites
+  // Clean up pathname by removing leading /api or trailing slashes
+  let pathname = url.pathname.replace(/^\/api/, '');
+  if (pathname.endsWith('/') && pathname.length > 1) {
+    pathname = pathname.slice(0, -1);
+  }
 
   const nasaApiKey = process.env.NASA_API_KEY;
 
   try {
     let targetUrl = '';
 
-    // Route matching for NOAA SWPC and NASA DONKI APIs
     if (pathname === '/dashboard/summary' || pathname === '/impact-summary' || pathname === '/solar-activity') {
-      // Aggregate or fetch primary summary endpoints (example proxying planetary K-index or solar wind as summary)
       targetUrl = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json';
-    } else if (pathname.startsWith('/solar-wind')) {
-      const type = url.searchParams.get('field') === 'mag' ? 'rtsw_mag_1m.json' : 'rtsw_wind_1m.json';
+    } else if (pathname.includes('/solar-wind')) {
+      const field = url.searchParams.get('field');
+      const type = field === 'mag' ? 'rtsw_mag_1m.json' : 'rtsw_wind_1m.json';
       targetUrl = `https://services.swpc.noaa.gov/json/rtsw/${type}`;
-    } else if (pathname.startsWith('/magnetic-field')) {
+    } else if (pathname.includes('/magnetic-field')) {
       targetUrl = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json';
     } else if (pathname === '/kp') {
       targetUrl = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json';
@@ -33,7 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       targetUrl = 'https://services.swpc.noaa.gov/products/noaa-scales.json';
     } else if (pathname === '/alerts') {
       targetUrl = 'https://services.swpc.noaa.gov/products/alerts.json';
-    } else if (pathname.startsWith('/events')) {
+    } else if (pathname.includes('/events')) {
       const type = url.searchParams.get('type') || 'all';
       if (nasaApiKey) {
         let endpoint = 'CME';
@@ -49,13 +51,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         targetUrl = `https://kauai.ccmc.gsfc.nasa.gov/DONKI/WS/get/${endpoint}`;
       }
     } else if (pathname.includes('/ionosphere/glotec')) {
-      // Fallback or specific proxy logic if you consume GloTEC data json/products
       targetUrl = 'https://services.swpc.noaa.gov/products/noaa-scales.json';
     } else {
-      return res.status(404).json({ success: false, error: `Endpoint not found: ${pathname}` });
+      return res.status(404).json({ 
+        success: false, 
+        error: `Endpoint not found`, 
+        receivedPath: pathname,
+        fullUrl: req.url 
+      });
     }
 
-    // Fetch data from external provider
     const response = await fetch(targetUrl);
     if (!response.ok) {
       throw new Error(`External provider responded with status ${response.status}`);
