@@ -2846,6 +2846,46 @@ h3 {
   overflow: hidden;
 }
 
+.split-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.split-chart-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgba(170, 183, 204, 0.18);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(circle at 16% 12%, rgba(56, 189, 248, 0.1), transparent 34%),
+    rgba(8, 13, 28, 0.58);
+}
+
+.split-chart-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.split-chart-heading h3 {
+  margin: 2px 0 0;
+  font-size: 1.05rem;
+}
+
+.split-chart-heading strong {
+  color: var(--text);
+  font-size: 1.05rem;
+  white-space: nowrap;
+}
+
+.split-chart-card .sparkline {
+  height: 214px;
+  margin: 0;
+}
+
 .chart-empty-state {
   display: grid;
   place-items: center;
@@ -4760,6 +4800,7 @@ h3 {
   .overview-visual-grid,
   .overview-status-strip,
   .wind-layout,
+  .split-chart-grid,
   .kp-summary-grid,
   .timeline-layout,
   .cme-detail-strip,

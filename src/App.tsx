@@ -3001,12 +3001,44 @@ function SolarWindPanel({
         <InstrumentStat label="Temperature" value={formatOptional(latest?.temperatureK, "K", 0)} icon={Thermometer} />
       </div>
       <LineChart
-        ariaLabel="Solar wind speed chart"
+        ariaLabel="Combined solar wind speed and density chart"
         series={[
           { label: "Speed", values: solarWind.data.map((point) => point.speedKmPerSec), className: "speed-line" },
           { label: "Density", values: solarWind.data.map((point) => point.densityPerCc), className: "density-line" }
         ]}
       />
+      <div className="split-chart-grid" aria-label="Individual solar wind charts">
+        <article className="split-chart-card">
+          <div className="split-chart-heading">
+            <div>
+              <p className="eyebrow">Speed trend</p>
+              <h3>Solar wind speed</h3>
+            </div>
+            <strong>{formatOptional(summary.solarWindSpeed ?? latest?.speedKmPerSec, "km/s")}</strong>
+          </div>
+          <LineChart
+            ariaLabel="Individual solar wind speed chart"
+            series={[
+              { label: "Speed", values: solarWind.data.map((point) => point.speedKmPerSec), className: "speed-line" }
+            ]}
+          />
+        </article>
+        <article className="split-chart-card">
+          <div className="split-chart-heading">
+            <div>
+              <p className="eyebrow">Density trend</p>
+              <h3>Plasma density</h3>
+            </div>
+            <strong>{formatOptional(latest?.densityPerCc, "/cc", 1)}</strong>
+          </div>
+          <LineChart
+            ariaLabel="Individual solar wind density chart"
+            series={[
+              { label: "Density", values: solarWind.data.map((point) => point.densityPerCc), className: "density-line" }
+            ]}
+          />
+        </article>
+      </div>
       <Modal
         title="Solar wind chart details"
         open={isDetailsOpen}
