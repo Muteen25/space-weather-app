@@ -1047,6 +1047,9 @@ function LandingPage({
   const gnssImpact = data?.impacts.impacts.find((impact) => impact.sector.toLowerCase().includes("gnss"));
   const currentClass = data?.solarActivity.xray.currentClass ?? summary?.latestFlare ?? "B-class";
   const solarSeverity = flareClassToLandingStatus(currentClass);
+  const hasLiveSummary = Boolean(summary?.lastUpdated);
+  const solarWindSpeed = formatOptional(latestWind?.speedKmPerSec ?? summary?.solarWindSpeed, "km/s", 0);
+  const solarWindBz = formatSigned(latestField?.bzGsmNt ?? summary?.bz, "nT");
   const statusItems = [
     {
       label: "Solar Activity",
@@ -1059,7 +1062,7 @@ function LandingPage({
     },
     {
       label: "Kp Index",
-      value: summary?.kp === null || summary?.kp === undefined ? "Unavailable" : `${summary.kp.toFixed(1)} ${summary.condition}`,
+      value: summary?.kp === null || summary?.kp === undefined ? "Pending" : `${summary.kp.toFixed(1)} ${summary.condition}`,
       detail: summary?.gScale ?? "G0",
       icon: Gauge,
       tone: summary?.overallSeverity ?? "low",
@@ -1068,8 +1071,8 @@ function LandingPage({
     },
     {
       label: "Solar Wind",
-      value: formatOptional(latestWind?.speedKmPerSec ?? summary?.solarWindSpeed, "km/s", 0),
-      detail: formatSigned(latestField?.bzGsmNt ?? summary?.bz, "nT"),
+      value: solarWindSpeed === "Unavailable" ? "Pending" : solarWindSpeed,
+      detail: solarWindBz === "Unavailable" ? "Waiting for IMF" : solarWindBz,
       icon: Waves,
       tone: "low" as SeverityLevel,
       accent: "blue",
@@ -1172,7 +1175,7 @@ function LandingPage({
               );
             })}
             <span className="landing-updated">
-              Updated {summary?.lastUpdated ? formatDateTime(summary.lastUpdated) : "when live data is available"} UTC
+              {summary?.lastUpdated ? `Updated ${formatDateTime(summary.lastUpdated)} UTC` : "Live update pending"}
             </span>
           </div>
         </div>

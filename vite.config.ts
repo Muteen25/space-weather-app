@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'https://space-weather-app-production-48ab.up.railway.app',
-    }
-  }
+      '/api': 'https://space-weather-app-production-e90e.up.railway.app',
+    },
+  },
 });

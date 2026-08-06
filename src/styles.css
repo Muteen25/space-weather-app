@@ -651,7 +651,7 @@ a:focus-visible {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
   margin-top: clamp(24px, 3.6vw, 44px);
-  padding: 22px 76px 22px 28px;
+  padding: 42px 26px 22px;
   border: 1px solid rgba(148, 163, 184, 0.42);
   border-radius: 8px;
   background:
@@ -663,11 +663,11 @@ a:focus-visible {
 
 .landing-live-item {
   display: grid;
-  grid-template-columns: 66px minmax(112px, 0.82fr) minmax(128px, 150px);
+  grid-template-columns: 58px minmax(112px, 1fr) minmax(112px, 136px);
   align-items: center;
-  column-gap: 20px;
+  column-gap: 18px;
   min-height: 82px;
-  padding: 0 44px 0 28px;
+  padding: 0 24px;
   border: 0;
   border-right: 1px solid rgba(148, 163, 184, 0.28);
   background: transparent;
@@ -682,8 +682,8 @@ a:focus-visible {
 
 .landing-live-icon {
   display: grid;
-  width: 62px;
-  height: 62px;
+  width: 54px;
+  height: 54px;
   place-items: center;
   border: 1.5px solid currentColor;
   border-radius: 999px;
@@ -698,26 +698,28 @@ a:focus-visible {
 
 .landing-live-text strong {
   color: #f8fafc;
-  font-size: 0.96rem;
+  font-size: 0.9rem;
   line-height: 1.1;
 }
 
 .landing-live-text b {
   margin-top: 4px;
   color: currentColor;
-  font-size: 1.12rem;
+  font-size: clamp(1rem, 1.1vw, 1.12rem);
   line-height: 1.1;
 }
 
 .landing-live-text small {
   margin-top: 2px;
   color: #dbeafe;
+  font-size: 0.78rem;
   font-weight: 700;
+  line-height: 1.15;
 }
 
 .mini-sparkline {
-  width: 136px;
-  height: 46px;
+  width: 122px;
+  height: 42px;
   overflow: hidden;
   align-self: center;
   justify-self: end;
@@ -758,10 +760,11 @@ a:focus-visible {
 
 .landing-updated {
   position: absolute;
-  top: 16px;
-  right: 22px;
+  top: 14px;
+  right: 26px;
   color: #d7e2f2;
   font-size: 0.76rem;
+  font-weight: 800;
 }
 
 .status-low {
