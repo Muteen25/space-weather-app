@@ -961,10 +961,26 @@ export default function App() {
     return (
       <ConfigProvider theme={appTheme}>
         <main className={`app-shell loading-shell theme-${themeMode}`}>
-        <div className="loading-panel" role="status">
-          <RefreshCw aria-hidden="true" className="spin" size={26} />
-          <span>Loading live space weather snapshot</span>
-        </div>
+          <section className="space-loader" role="status" aria-live="polite">
+            <div className="space-loader-scene" aria-hidden="true">
+              <div className="space-loader-stars" />
+              <div className="space-loader-galaxy" />
+              <div className="space-loader-orbit orbit-one" />
+              <div className="space-loader-orbit orbit-two" />
+              <div className="space-loader-earth">
+                <span className="space-loader-clouds" />
+                <span className="space-loader-aurora" />
+              </div>
+            </div>
+            <div className="space-loader-copy">
+              <p className="eyebrow">Live observatory startup</p>
+              <h1>Zooming out to near-Earth space</h1>
+              <p>Syncing solar wind, geomagnetic, ionosphere, and GNSS feeds.</p>
+              <span className="space-loader-progress">
+                <span />
+              </span>
+            </div>
+          </section>
         </main>
       </ConfigProvider>
     );
