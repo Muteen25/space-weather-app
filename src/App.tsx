@@ -973,9 +973,7 @@ export default function App() {
               </div>
             </div>
             <div className="space-loader-copy">
-              <p className="eyebrow">Live observatory startup</p>
-              <h1>Zooming out to near-Earth space</h1>
-              <p>Syncing solar wind, geomagnetic, ionosphere, and GNSS feeds.</p>
+              <h1>Loading live space weather snapshot</h1>
               <span className="space-loader-progress">
                 <span />
               </span>
