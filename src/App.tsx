@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from "react";
 import "antd/dist/reset.css";
 import {
   Alert as AntAlert,
@@ -38,8 +38,11 @@ import {
   DatabaseZap,
   ExternalLink,
   Gauge,
+  Globe2,
   Info,
   ListFilter,
+  Linkedin,
+  MapPin,
   Magnet,
   Moon,
   Radio,
@@ -338,12 +341,26 @@ const XRAY_FLARE_CLASS_RANGES = [
   { label: "X", range: ">= 1.0e-4 W/m2", meaning: "Major flares; strongest class with increasing subclasses such as X2 or X10.", color: "#ef4444" }
 ];
 
-const LANDING_APP_NAME = "Space Weather Observatory";
+const LANDING_APP_NAME = "NCGSA Space Weather Observatory";
 const HEADER_AFFILIATIONS = [
   "GNSS Research Lab",
-  "National Center of GIS & Space Applications",
-  "Institute of Space Technology, Islamabad, Pakistan"
+  "IST Islamabad, PK"
 ];
+const BRAND_LOGO_SRC = "/assets/ncgsa-space-weather-logo.png";
+
+const FOOTER_LOGOS = [
+  { name: "Ministry of Planning, Development and Special Initiatives", src: "/assets/footer-planning-ministry.png" },
+  { name: "Higher Education Commission", src: "/assets/footer-hec.png" },
+  { name: "National Center of GIS and Space Applications", src: "/assets/footer-ncgsa.png" },
+  { name: "Institute of Space Technology", src: "/assets/footer-ist.png" },
+  { name: "Global Navigation Satellite System Lab", src: "/assets/footer-gnss.png" }
+];
+
+const FOOTER_LINKS = {
+  website: "https://gnss.ncgsa.org.pk/wp/",
+  linkedin: "https://www.linkedin.com/company/ncgsa/",
+  facebook: "https://facebook.com/ncgsa.ist"
+};
 
 const HERO_IMAGES = [
   { url: "/landing/hero-space-weather.png", label: "Solar wind and magnetosphere artwork" },
@@ -382,19 +399,20 @@ const LANDING_LAYER_CARDS = [
     imageAlt: "NOAA GloTEC ionosphere map illustration"
   },
   {
-    title: "System",
-    description: "Source health, API status, references, attribution, and mission details keep the observatory transparent.",
+    title: "Contributors",
+    description: "Contributors, source health, references, attribution, and mission details keep the observatory transparent.",
     href: "#system",
     image: "/landing/gnss.svg",
-    imageAlt: "System and reference signal illustration"
+    imageAlt: "Contributor and reference signal illustration"
   }
 ];
 
 const LANDING_CARDS = [
   {
     title: "Sun",
-    description: "Explore how X-ray flux, flare events, sunspots, CME reports, and solar imagery describe the current state of the Sun.",
+    description: "Characterize solar activity and energetic phenomena driving variability across the heliosphere.",
     section: "layer-sun",
+    accent: "#f97316",
     image: "/landing/solar-activity.png",
     imageAlt: "Solar activity illustration",
     links: [
@@ -407,8 +425,9 @@ const LANDING_CARDS = [
   },
   {
     title: "Solar Wind & IMF",
-    description: "Understand upstream plasma and magnetic-field measurements before they couple into Earth-space conditions.",
+    description: "Examine solar-wind plasma and magnetic-field dynamics governing Sun-Earth coupling.",
     section: "layer-solar-wind",
+    accent: "#38bdf8",
     image: "/landing/solar-wind-field.png",
     imageAlt: "Solar wind stream illustration",
     links: [
@@ -419,8 +438,9 @@ const LANDING_CARDS = [
   },
   {
     title: "Geomagnetic Field",
-    description: "Connect Kp, NOAA G-scale status, and storm context to Earth's magnetic response.",
+    description: "Monitor geomagnetic disturbances and Earth's magnetic response to solar forcing.",
     section: "layer-geomagnetic",
+    accent: "#8b5cf6",
     image: "/landing/geomagnetic-field.png",
     imageAlt: "Geomagnetic field illustration",
     links: [
@@ -430,8 +450,9 @@ const LANDING_CARDS = [
   },
   {
     title: "Ionosphere",
-    description: "See how TEC structure and GNSS signal delay connect to ionospheric variability.",
+    description: "Investigate ionospheric dynamics and TEC variability affecting GNSS signal propagation.",
     section: "layer-ionosphere",
+    accent: "#22c55e",
     image: "/landing/ionosphere-gnss.png",
     imageAlt: "NOAA GloTEC ionosphere map illustration",
     links: [
@@ -724,6 +745,63 @@ const ROUTE_PATHS: Record<SiteRoute, string> = {
   sources: "/glossary"
 };
 
+const LANDING_NAV_ITEMS: Array<{
+  label: string;
+  section: string;
+  children?: Array<{ label: string; section: string }>;
+}> = [
+  { label: "Overview", section: "overview" },
+  {
+    label: "Sun",
+    section: "layer-sun",
+    children: [
+      { label: "X-ray Flux", section: "overview-1-xray" },
+      { label: "Solar Flares", section: "overview-1-flares" },
+      { label: "Sunspots", section: "overview-1-sunspots" },
+      { label: "Coronal Mass Ejections", section: "overview-1-cme" },
+      { label: "Solar Imagery", section: "overview-1-imagery" }
+    ]
+  },
+  {
+    label: "Solar Wind",
+    section: "layer-solar-wind",
+    children: [
+      { label: "Solar Wind Plasma", section: "overview-1-plasma" },
+      { label: "Solar Wind Trends", section: "overview-1-wind-trends" },
+      { label: "IMF Bz + Bt", section: "overview-1-imf" }
+    ]
+  },
+  {
+    label: "Geomagnetic Field",
+    section: "layer-geomagnetic",
+    children: [
+      { label: "Kp Index", section: "overview-1-kp" },
+      { label: "Dst Index", section: "overview-1-dst" }
+    ]
+  },
+  {
+    label: "Ionosphere",
+    section: "layer-ionosphere",
+    children: [
+      { label: "Ionosphere & TEC", section: "overview-1-tec" },
+      { label: "GNSS Impacts", section: "overview-1-gnss" }
+    ]
+  },
+  {
+    label: "Contributors",
+    section: "overview-1-contributors",
+    children: [
+      { label: "Contributors", section: "overview-1-contributors" },
+      { label: "References", section: "overview-1-reference" },
+      { label: "Observatory Status", section: "overview-1-status" },
+      { label: "API Status", section: "overview-1-api" },
+      { label: "Sources & Attribution", section: "overview-1-sources" },
+      { label: "About", section: "overview-1-about" }
+    ]
+  },
+  { label: "Glossary", section: "overview-1-glossary" }
+];
+
 const LEARNING_TOPICS: LearningTopic[] = [
   {
     key: "solar",
@@ -973,7 +1051,7 @@ export default function App() {
               </div>
             </div>
             <div className="space-loader-copy">
-              <h1>Loading live space weather snapshot</h1>
+              <h1>Loading Live Space Weather Snapshot</h1>
               <span className="space-loader-progress">
                 <span />
               </span>
@@ -1064,7 +1142,39 @@ function LandingPage({
   const hasLiveSummary = Boolean(summary?.lastUpdated);
   const solarWindSpeed = formatOptional(latestWind?.speedKmPerSec ?? summary?.solarWindSpeed, "km/s", 0);
   const solarWindBz = formatSigned(latestField?.bzGsmNt ?? summary?.bz, "nT");
+  const xrayFlux = data?.solarActivity.xray.currentFluxWm2;
+  const meanTec = data?.glotec.summary.meanTec;
+  const maxTec = data?.glotec.summary.maxTec;
+  const healthySources = data?.sourceHealth.sources.filter((source) => source.status === "healthy").length;
+  const totalSources = data?.sourceHealth.sources.length;
   const statusItems = [
+    {
+      label: "TEC Max",
+      value: maxTec === null || maxTec === undefined ? "Pending" : `${maxTec.toFixed(1)} TECU`,
+      detail: data?.glotec.summary.pointCount ? `${data.glotec.summary.pointCount.toLocaleString()} points` : "GloTEC",
+      icon: Satellite,
+      tone: "low" as SeverityLevel,
+      accent: "cyan",
+      section: "overview-1-tec"
+    },
+    {
+      label: "Active Alerts",
+      value: String(summary?.activeAlerts ?? data?.alerts.alerts.filter((alert) => alert.status === "active").length ?? 0),
+      detail: summary?.source ?? "NOAA SWPC",
+      icon: AlertTriangle,
+      tone: (summary?.activeAlerts ?? 0) > 0 ? "moderate" as SeverityLevel : "low" as SeverityLevel,
+      accent: "rose",
+      section: "overview-1-alerts"
+    },
+    {
+      label: "Live Sources",
+      value: healthySources === undefined || totalSources === undefined ? "Checking" : `${healthySources}/${totalSources}`,
+      detail: "API health",
+      icon: DatabaseZap,
+      tone: healthySources !== undefined && totalSources !== undefined && healthySources < totalSources ? "moderate" as SeverityLevel : "low" as SeverityLevel,
+      accent: "green",
+      section: "overview-1-api"
+    },
     {
       label: "Solar Activity",
       value: solarSeverity.label,
@@ -1072,7 +1182,43 @@ function LandingPage({
       icon: Sun,
       tone: solarSeverity.tone,
       accent: "orange",
-      points: [14, 18, 16, 20, 18, 28, 24, 31, 27, 29, 22]
+      section: "layer-sun"
+    },
+    {
+      label: "Solar Wind",
+      value: solarWindSpeed === "Unavailable" ? "Pending" : solarWindSpeed,
+      detail: "Plasma speed",
+      icon: Waves,
+      tone: "low" as SeverityLevel,
+      accent: "blue",
+      section: "layer-solar-wind"
+    },
+    {
+      label: "X-ray Flux",
+      value: xrayFlux === null || xrayFlux === undefined ? "Pending" : formatScientific(xrayFlux, "W/m2"),
+      detail: currentClass,
+      icon: Activity,
+      tone: solarSeverity.tone,
+      accent: "amber",
+      section: "overview-1-xray"
+    },
+    {
+      label: "IMF Bz",
+      value: solarWindBz === "Unavailable" ? "Pending" : solarWindBz,
+      detail: latestField?.btNt === null || latestField?.btNt === undefined ? "Bt pending" : `Bt ${latestField.btNt.toFixed(1)} nT`,
+      icon: Magnet,
+      tone: latestField?.bzGsmNt !== null && latestField?.bzGsmNt !== undefined && latestField.bzGsmNt < -5 ? "moderate" as SeverityLevel : "low" as SeverityLevel,
+      accent: "violet",
+      section: "overview-1-imf"
+    },
+    {
+      label: "GNSS Impact",
+      value: gnssImpact?.level ? severityLabels[gnssImpact.level] : "Monitored",
+      detail: meanTec === null || meanTec === undefined ? "TEC ready" : `${meanTec.toFixed(1)} TECU`,
+      icon: Satellite,
+      tone: gnssImpact?.level ?? "low",
+      accent: "lime",
+      section: "layer-ionosphere"
     },
     {
       label: "Kp Index",
@@ -1081,25 +1227,54 @@ function LandingPage({
       icon: Gauge,
       tone: summary?.overallSeverity ?? "low",
       accent: "teal",
-      points: [12, 16, 18, 22, 19, 24, 32, 27, 31, 30, 35]
+      section: "overview-1-kp"
+    }
+  ];
+  const heroSummaryCards = [
+    {
+      type: "condition",
+      label: "Current Condition",
+      value: summary?.condition ?? "Pending",
+      badge: summary?.freshness === "fresh" ? "Fresh" : summary?.freshness === "stale" ? "Stale" : "Pending",
+      detail: summary?.kp === null || summary?.kp === undefined
+        ? "Waiting for live Kp conditions."
+        : `Kp ${summary.kp.toFixed(1)} indicates ${summary.condition.toLowerCase()} conditions.`,
+      icon: Activity,
+      tone: summary?.overallSeverity ?? "low",
+      section: "overview",
+      facts: [
+        ["G scale", summary?.gScale ?? "G0"],
+        ["R scale", summary?.rScale ?? "R0"],
+        ["S scale", summary?.sScale ?? "S0"]
+      ],
+      footer: summary?.lastUpdated ? `Updated ${formatDateTime(summary.lastUpdated)} UTC` : "Update pending"
     },
     {
-      label: "Solar Wind",
-      value: solarWindSpeed === "Unavailable" ? "Pending" : solarWindSpeed,
-      detail: solarWindBz === "Unavailable" ? "Waiting for IMF" : solarWindBz,
-      icon: Waves,
-      tone: "low" as SeverityLevel,
-      accent: "blue",
-      points: [21, 24, 22, 27, 30, 26, 32, 29, 35, 31, 28]
+      label: "Kp Index",
+      value: summary?.kp === null || summary?.kp === undefined ? "Pending" : `Kp ${summary.kp.toFixed(1)}`,
+      badge: severityLabels[summary?.overallSeverity ?? "low"],
+      detail: `${summary?.gScale ?? "G0"} geomagnetic scale`,
+      icon: Gauge,
+      tone: summary?.overallSeverity ?? "low",
+      section: "overview-1-kp"
     },
     {
-      label: "GNSS Impact",
-      value: gnssImpact?.level ? severityLabels[gnssImpact.level] : "Monitored",
-      detail: data?.glotec.summary.meanTec === null || !data ? "TEC ready" : `${data.glotec.summary.meanTec.toFixed(1)} TECU`,
-      icon: Satellite,
-      tone: gnssImpact?.level ?? "low",
-      accent: "lime",
-      points: [9, 11, 12, 13, 11, 15, 14, 18, 16, 19, 17]
+      label: "IMF Bz",
+      value: solarWindBz === "Unavailable" ? "Pending" : solarWindBz,
+      badge: latestField?.bzGsmNt !== null && latestField?.bzGsmNt !== undefined && latestField.bzGsmNt < -5 ? "Moderate" : "Low",
+      detail: "Southward values raise storm potential",
+      icon: Magnet,
+      tone: latestField?.bzGsmNt !== null && latestField?.bzGsmNt !== undefined && latestField.bzGsmNt < -5 ? "moderate" as SeverityLevel : "low" as SeverityLevel,
+      section: "overview-1-imf"
+    },
+    {
+      label: "Active Alerts",
+      value: String(summary?.activeAlerts ?? data?.alerts.alerts.filter((alert) => alert.status === "active").length ?? 0),
+      badge: (summary?.activeAlerts ?? 0) > 0 ? "Moderate" : "Low",
+      detail: summary?.source ?? "NOAA_SWPC",
+      icon: AlertTriangle,
+      tone: (summary?.activeAlerts ?? 0) > 0 ? "moderate" as SeverityLevel : "low" as SeverityLevel,
+      section: "overview-1-alerts"
     }
   ];
 
@@ -1107,36 +1282,41 @@ function LandingPage({
     <main className="landing-page theme-dark">
       <header className="landing-topbar">
         <button className="landing-brand" type="button" onClick={() => onLaunch("overview")} aria-label="Open live dashboard">
-          <span className="landing-brand-mark">
-            <Satellite aria-hidden="true" size={28} />
-          </span>
-          <span>
-            <strong>Space Weather Observatory</strong>
-            <small>GNSS Research Lab</small>
-          </span>
+          <img src={BRAND_LOGO_SRC} alt={`${LANDING_APP_NAME} - ${HEADER_AFFILIATIONS.join(" - ")}`} />
         </button>
         <nav className="landing-nav" aria-label="Landing navigation">
           <a className="active" href="/">
             Home
           </a>
-          {[
-            ["Overview", "overview"],
-            ["Sun", "layer-sun"],
-            ["Solar Wind", "layer-solar-wind"],
-            ["Geomagnetic Field", "layer-geomagnetic"],
-            ["Ionosphere", "layer-ionosphere"],
-            ["Glossary", "overview-1-glossary"]
-          ].map(([label, section]) => (
-            <a
-              href={`/observatory?section=${section}`}
-              key={section}
-              onClick={(event) => {
-                event.preventDefault();
-                onLaunch(section);
-              }}
-            >
-              {label}
-            </a>
+          {LANDING_NAV_ITEMS.map((item) => (
+            <div className={item.children?.length ? "landing-nav-item has-dropdown" : "landing-nav-item"} key={item.section}>
+              <a
+                href={`/observatory?section=${item.section}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  onLaunch(item.section);
+                }}
+              >
+                {item.label}
+              </a>
+              {item.children?.length ? (
+                <div className="landing-nav-dropdown" role="menu" aria-label={`${item.label} sub pages`}>
+                  {item.children.map((child) => (
+                    <a
+                      href={`/observatory?section=${child.section}`}
+                      key={child.section}
+                      role="menuitem"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        onLaunch(child.section);
+                      }}
+                    >
+                      {child.label}
+                    </a>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           ))}
         </nav>
         <div className="landing-system">
@@ -1154,11 +1334,15 @@ function LandingPage({
         style={{ "--hero-image": `url(${currentHero.url})` } as CSSProperties}
       >
         <div className="landing-hero-content">
-          <p className="landing-eyebrow">Real-time space environment monitoring</p>
-          <h1>{LANDING_APP_NAME}</h1>
+          <p className="landing-eyebrow">Real-Time Space Environment Monitoring</p>
+          <h1>
+            <span className="landing-hero-first-line"><span className="landing-hero-ncgsa">NCGSA</span> Space</span>
+            <span>Weather</span>
+            <span>Observatory</span>
+          </h1>
           <p className="landing-hero-copy">
-            Monitor solar activity, geomagnetic storms, ionospheric variability, and GNSS impacts through trusted
-            operational data.
+            Observing solar activity, geomagnetic dynamics, ionospheric variability, and their impacts on the
+            near-Earth environment.
           </p>
           <div className="landing-actions">
             <a className="landing-primary-link" href="/observatory" onClick={(event) => { event.preventDefault(); onLaunch("overview"); }}>
@@ -1166,28 +1350,72 @@ function LandingPage({
               Live Dashboard
             </a>
           </div>
-          <div className="landing-live-strip" aria-label="Live space weather snapshot">
-            {statusItems.map((item) => {
-              const Icon = item.icon;
+          <div className="landing-hero-summary-grid" aria-label="Live hero condition cards">
+            {heroSummaryCards.map((card) => {
+              const Icon = card.icon;
+              const isConditionCard = card.type === "condition";
+
               return (
                 <button
-                  className={`landing-live-item status-${item.tone}`}
-                  key={item.label}
+                  className={`landing-hero-summary-card severity-${card.tone} ${isConditionCard ? "is-condition" : ""}`}
+                  key={card.label}
                   type="button"
-                  onClick={() => onLaunch(item.label === "GNSS Impact" ? "layer-ionosphere" : item.label === "Solar Wind" ? "layer-solar-wind" : item.label === "Kp Index" ? "overview-1-kp" : "layer-sun")}
+                  onClick={() => onLaunch(card.section)}
                 >
-                  <span className="landing-live-icon">
-                    <Icon aria-hidden="true" size={25} />
+                  <span className={`landing-summary-icon severity-${card.tone}`}>
+                    <Icon aria-hidden="true" size={22} />
                   </span>
-                  <span className="landing-live-text">
-                    <strong>{item.label}</strong>
-                    <b>{item.value}</b>
-                    <small>{item.detail}</small>
+                  <span className="landing-summary-body">
+                    <span className="landing-summary-topline">
+                      <span className="landing-summary-label">{card.label}</span>
+                      <span className={`landing-summary-badge severity-${card.tone}`}>{card.badge}</span>
+                    </span>
+                    <strong>{card.value}</strong>
+                    <span className="landing-summary-detail">{card.detail}</span>
+                    {isConditionCard && "facts" in card ? (
+                      <span className="landing-summary-facts">
+                        {card.facts.map(([label, value]) => (
+                          <span key={label}>
+                            <small>{label}</small>
+                            <b>{value}</b>
+                          </span>
+                        ))}
+                      </span>
+                    ) : null}
+                    {isConditionCard && "footer" in card ? <span className="landing-summary-footer">{card.footer}</span> : null}
                   </span>
-                  <MiniSparkline accent={item.accent} points={item.points} />
                 </button>
               );
             })}
+          </div>
+          <div className="landing-live-strip" aria-label="Live space weather snapshot">
+            <div className="landing-live-track">
+              {[0, 1].map((copyIndex) => (
+                <div className="landing-live-group" key={copyIndex} aria-hidden={copyIndex === 1}>
+                  {statusItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        className={`landing-live-item status-${item.tone} live-accent-${item.accent}`}
+                        key={`${item.label}-${copyIndex}`}
+                        type="button"
+                        tabIndex={copyIndex === 1 ? -1 : 0}
+                        onClick={() => onLaunch(item.section)}
+                      >
+                        <span className="landing-live-icon">
+                          <Icon aria-hidden="true" size={25} />
+                        </span>
+                        <span className="landing-live-text">
+                          <strong>{item.label}</strong>
+                          <b>{item.value}</b>
+                          <small>{item.detail}</small>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
             <span className="landing-updated">
               {summary?.lastUpdated ? `Updated ${formatDateTime(summary.lastUpdated)} UTC` : "Live update pending"}
             </span>
@@ -1209,7 +1437,12 @@ function LandingPage({
         </div>
         <div className="phenomena-grid" role="list" aria-label="Space weather phenomena">
           {LANDING_CARDS.map((card) => (
-            <article className="phenomenon-card" key={card.title} role="listitem">
+            <article
+              className="phenomenon-card"
+              key={card.title}
+              role="listitem"
+              style={{ "--card-accent": card.accent } as CSSProperties}
+            >
               <img src={card.image} alt={card.imageAlt} />
               <div className="phenomenon-card-body">
                 <h3>{card.title}</h3>
@@ -1244,6 +1477,7 @@ function LandingPage({
           ))}
         </div>
       </section>
+      <InstitutionalFooter onNavigate={onLaunch} />
     </main>
   );
 }
@@ -1283,6 +1517,173 @@ function TimeDropdown({ now }: { now?: Date }) {
   );
 }
 
+function FacebookIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg aria-hidden="true" focusable="false" height={size} viewBox="0 0 24 24" width={size}>
+      <path
+        d="M14.2 8.5V6.9c0-.7.5-.9.9-.9h2.3V2.2L14 2.1c-3.8 0-4.7 2.8-4.7 4.7v1.7H6.4v4.2h2.9V22h4.5v-9.3h3.2l.5-4.2h-3.3Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function ObservatoryFooter({ onNavigate }: { onNavigate: (section: string) => void }) {
+  function handleFooterNav(event: MouseEvent<HTMLAnchorElement>, section: string) {
+    event.preventDefault();
+    onNavigate(section);
+  }
+
+  const quickLinks = [
+    { label: "Overview", section: "overview" },
+    { label: "Sun", section: "layer-sun" },
+    { label: "Solar Wind & IMF", section: "layer-solar-wind" },
+    { label: "Geomagnetic Field", section: "layer-geomagnetic" },
+    { label: "Ionosphere", section: "layer-ionosphere" },
+    { label: "Glossary", section: "overview-1-glossary" }
+  ];
+
+  return (
+    <footer className="observatory-footer" aria-label="Institutional footer">
+      <div className="footer-supported">
+        <div className="footer-logo-row" aria-label="Institutional logos">
+          {FOOTER_LOGOS.map((logo) => (
+            <div className="footer-logo-card" key={logo.name}>
+              <img src={logo.src} alt={logo.name} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="footer-body-shell">
+      <div className="footer-content">
+        <div className="footer-panel footer-identity">
+          <p className="footer-eyebrow">GNSS Research Lab</p>
+          <h2>NCGSA Space Weather Observatory</h2>
+          <p>National Center of GIS and Space Applications</p>
+          <p>Institute of Space Technology, Islamabad, Pakistan</p>
+        </div>
+
+        <address className="footer-contact">
+          <span>
+            <MapPin aria-hidden="true" size={18} />
+            1, Islamabad Highway, Islamabad 44000
+          </span>
+          <a href={FOOTER_LINKS.website} target="_blank" rel="noreferrer">
+            <Globe2 aria-hidden="true" size={18} />
+            GNSS Research Lab Website
+          </a>
+          <div className="footer-socials" aria-label="Social links">
+            <a href={FOOTER_LINKS.linkedin} target="_blank" rel="noreferrer">
+              <Linkedin aria-hidden="true" size={18} />
+              LinkedIn
+            </a>
+            <a href={FOOTER_LINKS.facebook} target="_blank" rel="noreferrer">
+              <FacebookIcon />
+              Facebook
+            </a>
+          </div>
+        </address>
+
+        <nav className="footer-quick-links" aria-label="Footer quick links">
+          <span>Quick Links</span>
+          {quickLinks.map((link) => (
+            <a href={`/observatory?section=${link.section}`} key={link.section} onClick={(event) => handleFooterNav(event, link.section)}>
+              {link.label}
+            </a>
+          ))}
+        </nav>
+      </div>
+      </div>
+    </footer>
+  );
+}
+
+function InstitutionalFooter({ onNavigate }: { onNavigate: (section: string) => void }) {
+  function handleFooterNav(event: MouseEvent<HTMLAnchorElement>, section: string) {
+    event.preventDefault();
+    onNavigate(section);
+  }
+
+  const quickLinks = [
+    { label: "Overview", section: "overview" },
+    { label: "Sun", section: "layer-sun" },
+    { label: "Solar Wind & IMF", section: "layer-solar-wind" },
+    { label: "Geomagnetic Field", section: "layer-geomagnetic" },
+    { label: "Ionosphere", section: "layer-ionosphere" },
+    { label: "Glossary", section: "overview-1-glossary" }
+  ];
+
+  return (
+    <footer className="observatory-footer" aria-label="Institutional footer">
+      <div className="footer-supported">
+        <div className="footer-logo-row" aria-label="Institutional logos">
+          {FOOTER_LOGOS.map((logo) => (
+            <div className="footer-logo-card" key={logo.name}>
+              <img src={logo.src} alt={logo.name} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="footer-body-shell">
+        <div className="footer-content">
+          <section className="footer-panel footer-identity" aria-labelledby="footer-observatory-title">
+            <p className="footer-section-label">GNSS Research Lab</p>
+            <h2 id="footer-observatory-title">NCGSA Space Weather Observatory</h2>
+            <p className="footer-affiliation">National Center of GIS and Space Applications</p>
+            <p className="footer-description">Institute of Space Technology, Islamabad, Pakistan</p>
+          </section>
+
+          <address className="footer-panel footer-contact">
+            <p className="footer-section-label">Contact</p>
+            <span className="footer-contact-row">
+              <MapPin aria-hidden="true" size={24} />
+              1, Islamabad Highway, Islamabad 44000
+            </span>
+            <a className="footer-contact-row" href={FOOTER_LINKS.website} target="_blank" rel="noreferrer">
+              <Globe2 aria-hidden="true" size={24} />
+              GNSS Research Lab Website
+            </a>
+            <div className="footer-socials" aria-label="Social links">
+              <a href={FOOTER_LINKS.linkedin} target="_blank" rel="noreferrer">
+                <span className="footer-social-icon">
+                  <Linkedin aria-hidden="true" size={20} />
+                </span>
+                LinkedIn
+              </a>
+              <a href={FOOTER_LINKS.facebook} target="_blank" rel="noreferrer">
+                <span className="footer-social-icon">
+                  <FacebookIcon size={20} />
+                </span>
+                Facebook
+              </a>
+            </div>
+          </address>
+
+          <nav className="footer-panel footer-quick-links" aria-label="Footer quick links">
+            <p className="footer-section-label">Explore</p>
+            {quickLinks.map((link) => (
+              <a href={`/observatory?section=${link.section}`} key={link.section} onClick={(event) => handleFooterNav(event, link.section)}>
+                {link.label}
+              </a>
+            ))}
+          </nav>
+        </div>
+
+        <div className="footer-bottom">
+          <span>© 2026 NCGSA Space Weather Observatory</span>
+          <span className="footer-data">
+            Data: NOAA SWPC · NASA DONKI
+            <span className="footer-live-dot" aria-hidden="true" />
+            Live data
+          </span>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
 function formatClockTime(value: Date, timeZone: string): string {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone,
@@ -1301,29 +1702,6 @@ function flareClassToLandingStatus(currentClass: string): { label: string; tone:
   return { label: "Low", tone: "low" };
 }
 
-function MiniSparkline({ accent, points }: { accent: string; points: number[] }) {
-  const width = 150;
-  const height = 42;
-  const padX = 10;
-  const padY = 7;
-  const max = Math.max(...points);
-  const min = Math.min(...points);
-  const span = Math.max(max - min, 1);
-  const path = points
-    .map((point, index) => {
-      const x = padX + (index / Math.max(points.length - 1, 1)) * (width - padX * 2);
-      const y = padY + (1 - (point - min) / span) * (height - padY * 2);
-      return `${index === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
-    })
-    .join(" ");
-
-  return (
-    <svg className={`mini-sparkline sparkline-${accent}`} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Recent trend">
-      <path d={path} />
-    </svg>
-  );
-}
-
 function LearningSiteShell({
   route,
   onNavigate,
@@ -1337,11 +1715,7 @@ function LearningSiteShell({
     <main className="learning-site theme-dark">
       <header className="site-header">
         <a className="site-brand" href="/" onClick={(event) => { event.preventDefault(); onNavigate("home"); }}>
-          <Satellite aria-hidden="true" size={22} />
-          <span>
-            <strong>Space Weather Observatory</strong>
-            <small>Research exploration portal</small>
-          </span>
+          <img src={BRAND_LOGO_SRC} alt={`${LANDING_APP_NAME} - ${HEADER_AFFILIATIONS.join(" - ")}`} />
         </a>
         <nav className="site-nav" aria-label="Website navigation">
           {SITE_NAV.map((item) => (
@@ -1436,7 +1810,7 @@ function LearningTopicPage({ topic, onNavigate }: { topic: LearningTopic; onNavi
       <section className="learning-cta-panel">
         <div>
           <p className="eyebrow">Next step</p>
-          <h2>Move from explanation to live monitoring.</h2>
+          <h2>Move From Explanation To Live Monitoring.</h2>
           <p>Open the dashboard and compare these concepts with current NOAA SWPC and NASA DONKI data.</p>
         </div>
         <button type="button" onClick={() => onNavigate("observatory")}>Launch Observatory</button>
@@ -1478,43 +1852,43 @@ function SourcesPage() {
 
 const DASHBOARD_HEADER_TITLES: Record<string, string> = {
   overview: "Space Weather Observatory",
-  "layer-sun": "SUN",
-  "overview-1-xray": "X-RAY FLUX",
-  "overview-1-flares": "SOLAR FLARES",
-  "overview-1-sunspots": "SUNSPOTS",
-  "overview-1-cme": "CORONAL MASS EJECTIONS",
-  "overview-1-imagery": "SOLAR IMAGERY",
-  "layer-solar-wind": "SOLAR WIND & IMF",
-  "overview-1-plasma": "SOLAR WIND PLASMA",
-  "overview-1-wind-trends": "SOLAR WIND TRENDS",
-  "overview-1-imf": "IMF BZ + BT",
-  "layer-geomagnetic": "GEOMAGNETIC FIELD",
-  "overview-1-geomagnetic": "GEOMAGNETIC ACTIVITY",
-  "overview-1-kp": "KP INDEX",
-  "overview-1-dst": "DST INDEX",
-  "layer-ionosphere": "IONOSPHERE",
-  "overview-1-tec": "IONOSPHERE & TEC",
-  "overview-1-gnss": "GNSS IMPACTS",
-  "layer-radio": "RADIO",
-  "overview-1-radio": "RADIO / HF CONDITIONS",
-  "layer-outlook": "OUTLOOK",
-  "overview-1-alerts": "ACTIVE ALERTS",
-  "overview-1-forecasts": "SPACE WEATHER FORECASTS",
-  "overview-1-events": "EVENT TIMELINE",
-  "layer-reference": "REFERENCES",
-  "overview-1-reference": "REFERENCES",
-  "overview-1-glossary": "GLOSSARY",
-  "overview-1-contributors": "CONTRIBUTORS",
-  "layer-system": "SYSTEM",
-  "overview-1-status": "OBSERVATORY STATUS",
-  "overview-1-api": "API STATUS",
-  "overview-1-data": "DATA EXPLORER",
-  "overview-1-sources": "SOURCES & ATTRIBUTION",
-  "overview-1-about": "ABOUT"
+  "layer-sun": "Sun",
+  "overview-1-xray": "X-Ray Flux",
+  "overview-1-flares": "Solar Flares",
+  "overview-1-sunspots": "Sunspots",
+  "overview-1-cme": "Coronal Mass Ejections",
+  "overview-1-imagery": "Solar Imagery",
+  "layer-solar-wind": "Solar Wind & IMF",
+  "overview-1-plasma": "Solar Wind Plasma",
+  "overview-1-wind-trends": "Solar Wind Trends",
+  "overview-1-imf": "IMF Bz + Bt",
+  "layer-geomagnetic": "Geomagnetic Field",
+  "overview-1-geomagnetic": "Geomagnetic Activity",
+  "overview-1-kp": "Kp Index",
+  "overview-1-dst": "Dst Index",
+  "layer-ionosphere": "Ionosphere",
+  "overview-1-tec": "Ionosphere & TEC",
+  "overview-1-gnss": "GNSS Impacts",
+  "layer-radio": "Radio",
+  "overview-1-radio": "Radio / HF Conditions",
+  "layer-outlook": "Outlook",
+  "overview-1-alerts": "Active Alerts",
+  "overview-1-forecasts": "Space Weather Forecasts",
+  "overview-1-events": "Event Timeline",
+  "layer-reference": "References",
+  "overview-1-reference": "References",
+  "overview-1-glossary": "Glossary",
+  "overview-1-contributors": "Contributors",
+  "layer-system": "Contributors",
+  "overview-1-status": "Observatory Status",
+  "overview-1-api": "API Status",
+  "overview-1-data": "Data Explorer",
+  "overview-1-sources": "Sources & Attribution",
+  "overview-1-about": "About"
 };
 
 function getDashboardHeaderTitle(section: string) {
-  return DASHBOARD_HEADER_TITLES[section] ?? "SPACE WEATHER OBSERVATORY";
+  return DASHBOARD_HEADER_TITLES[section] ?? "Space Weather Observatory";
 }
 
 function Dashboard({
@@ -1540,6 +1914,8 @@ function Dashboard({
 }) {
   const { summary, impacts, solarWind, magneticField, kp, scales, alerts, events, solarActivity, glotec, sourceHealth } = data;
   const activeAlerts = alerts.alerts.filter((alert) => alert.status === "active");
+  const latestOverviewField = magneticField.data.at(-1);
+  const overviewBz = latestOverviewField?.bzGsmNt ?? summary.bz;
   const [selectedSection, setSelectedSection] = useState(initialSection);
   const [openMenuKeys, setOpenMenuKeys] = useState(LAYER_MENU_KEYS);
   const [dashboardNow, setDashboardNow] = useState(() => new Date());
@@ -1601,18 +1977,22 @@ function Dashboard({
     },
     {
       key: "layer-system",
-      icon: <DatabaseZap size={17} />,
-      label: layerTitle("layer-system", "System"),
+      icon: <UsersRound size={17} />,
+      label: layerTitle("layer-system", "Contributors"),
       children: [
-        { key: "overview-1-reference", className: "mission-subitem", label: "References" },
-        { key: "overview-1-glossary", className: "mission-subitem", label: "Glossary" },
         { key: "overview-1-contributors", className: "mission-subitem", label: "Contributors" },
+        { key: "overview-1-reference", className: "mission-subitem", label: "References" },
         { key: "overview-1-status", className: "mission-subitem", label: "Observatory Status" },
         { key: "overview-1-api", className: "mission-subitem", label: "API Status" },
         { key: "overview-1-data", className: "mission-subitem", label: "Data Explorer" },
         { key: "overview-1-sources", className: "mission-subitem", label: "Sources & Attribution" },
         { key: "overview-1-about", className: "mission-subitem", label: "About" }
       ]
+    },
+    {
+      key: "overview-1-glossary",
+      icon: <Info size={17} />,
+      label: layerTitle("overview-1-glossary", "Glossary")
     }
   ];
 
@@ -1627,6 +2007,9 @@ function Dashboard({
 
   function navigateToSection(section: string) {
     setSelectedSection(section);
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    });
   }
 
   function changeOpenMenuKeys(keys: string[]) {
@@ -1639,13 +2022,7 @@ function Dashboard({
       <Sider className="mission-sider" width={248} breakpoint="lg" collapsedWidth="0">
         <nav aria-label="Mission navigation">
           <button className="mission-brand" type="button" onClick={onGoHome} aria-label="Open landing page">
-            <span className="brand-mark">
-              <Satellite aria-hidden="true" size={21} />
-            </span>
-            <div>
-              <strong>Space Weather Observatory</strong>
-              <span>GNSS Research Lab</span>
-            </div>
+            <img src={BRAND_LOGO_SRC} alt={`${LANDING_APP_NAME} - ${HEADER_AFFILIATIONS.join(" - ")}`} />
           </button>
           <Menu
             className="mission-menu"
@@ -1724,28 +2101,32 @@ function Dashboard({
                 <div className="snapshot-source-card">
                   <div>
                     <p className="eyebrow">Official and derived live sources</p>
-                    <h2 id="overview-snapshot-title">Current space weather conditions</h2>
+                    <h2 id="overview-snapshot-title">Current Space Weather Conditions</h2>
                   </div>
-                  <p>
-                    Observation time {formatDateTime(summary.lastUpdated)} UTC. External values are sourced from NOAA SWPC
-                    and NASA DONKI unless a card is explicitly marked unavailable or not configured.
-                  </p>
+                  <div className="snapshot-source-meta">
+                    <span className="observation-time">Observation Time {formatDateTime(summary.lastUpdated)} UTC</span>
+                    <span className="source-meta-copy">External values are sourced from</span>
+                    <span className="source-chip">NOAA SWPC</span>
+                    <span className="source-chip">NASA DONKI</span>
+                  </div>
                 </div>
                 <div className="summary-grid overview-summary-grid" aria-label="Current overview cards">
-                  <ConditionPanel summary={summary} />
+                  <ConditionPanel summary={summary} onOpen={() => navigateToSection("overview-1-status")} />
                   <MetricPanel
                     icon={Gauge}
                     title="Kp index"
                     value={summary.kp === null ? "Kp --" : `Kp ${summary.kp.toFixed(1)}`}
                     detail={`${summary.gScale} geomagnetic scale`}
                     severity={summary.overallSeverity}
+                    onOpen={() => navigateToSection("overview-1-kp")}
                   />
                   <MetricPanel
                     icon={Magnet}
                     title="IMF Bz"
-                    value={formatSigned(summary.bz, "nT")}
+                    value={formatSigned(overviewBz, "nT")}
                     detail="Southward values raise storm potential"
-                    severity={summary.bz !== null && summary.bz < 0 ? "moderate" : "low"}
+                    severity={overviewBz !== null && overviewBz !== undefined && overviewBz < 0 ? "moderate" : "low"}
+                    onOpen={() => navigateToSection("overview-1-imf")}
                   />
                   <MetricPanel
                     icon={AlertTriangle}
@@ -1753,6 +2134,7 @@ function Dashboard({
                     value={String(summary.activeAlerts)}
                     detail="NOAA_SWPC"
                     severity={summary.activeAlerts > 0 ? "moderate" : "low"}
+                    onOpen={() => navigateToSection("overview-1-alerts")}
                   />
                 </div>
                 <OverviewVisualPanels
@@ -1766,6 +2148,7 @@ function Dashboard({
               </section>
             </>
           )}
+          <InstitutionalFooter onNavigate={navigateToSection} />
         </Content>
       </Layout>
     </Layout>
@@ -1862,7 +2245,7 @@ function OverviewOnePortal({
           <p>{gnssImpact?.reason ?? "GNSS positioning, timing, and survey operations are tracked through ionospheric conditions."}</p>
         </OverviewOneBlock>
 
-        <OverviewOneBlock id="overview-1-status" icon={DatabaseZap} title="System" eyebrow="Operations" span="wide">
+        <OverviewOneBlock id="overview-1-status" icon={UsersRound} title="Contributors" eyebrow="Credits and references" span="wide">
           <div className="overview-one-card-grid">
             <OverviewOneMiniCard
               id="overview-1-reference"
@@ -1994,13 +2377,14 @@ function buildObservatoryLayerCards({
     },
     {
       key: "layer-system",
-      title: "System",
-      eyebrow: "Operations and references",
-      icon: DatabaseZap,
+      title: "Contributors",
+      eyebrow: "Credits and references",
+      icon: UsersRound,
       image: "/landing/gnss.svg",
-      value: `${healthySources}/${sourceHealth.sources.length} healthy`,
-      detail: "Source health, API status, references, attribution, and mission details for the observatory.",
+      value: "Credits + sources",
+      detail: "Contributor credits, references, source health, attribution, and mission details for the observatory.",
       links: [
+        { key: "overview-1-contributors", label: "Contributors", value: "Project credits", detail: "Research, engineering, data, and QA contributor board." },
         { key: "overview-1-reference", label: "References", value: `${scales.current.gScale} / ${scales.current.rScale} / ${scales.current.sScale}`, detail: "NOAA G/R/S definitions and current scale values." },
         { key: "overview-1-status", label: "Observatory Status", value: summary.freshness, detail: `Updated ${formatDateTime(summary.lastUpdated)} UTC.` },
         { key: "overview-1-api", label: "API Status", value: `${healthySources}/${sourceHealth.sources.length} healthy`, detail: "Live adapters and proxy health." },
@@ -2306,14 +2690,14 @@ function NotebookTabPage({
       body: <ScalesPanel scales={scales} />
     },
     "overview-1-glossary": {
-      eyebrow: "System",
+      eyebrow: "Glossary",
       title: "Glossary",
       icon: Info,
       summary: "Definitions for the main space-weather and GNSS terms used throughout the observatory.",
       body: <GlossaryPanel />
     },
     "overview-1-contributors": {
-      eyebrow: "System",
+      eyebrow: "Contributors",
       title: "Contributors",
       icon: UsersRound,
       summary: "Project credit board for the people, teams, and public data providers behind the observatory.",
@@ -2416,11 +2800,6 @@ function NotebookTabPage({
       </div>
       <div className="focused-grid">
         {page.body}
-        <OverviewOneMiniCard
-          title="Current snapshot"
-          value={`${summary.condition} / ${formatOptional(latestWind?.speedKmPerSec, "km/s")}`}
-          detail={`Kp ${kp.current === null ? "unavailable" : kp.current.toFixed(2)}, ${alerts.length} active alerts, ${solarWind.data.length} solar wind samples in view.`}
-        />
       </div>
     </section>
   );
@@ -2556,8 +2935,8 @@ function OverviewVisualPanels({
       <section className="panel overview-visual-panel overview-visual-panel-wide" aria-labelledby="overview-combined-wind-title">
         <div className="overview-visual-heading">
           <div>
-            <p className="eyebrow">NOAA solar wind style</p>
-            <h3 id="overview-combined-wind-title">Solar wind all-in-one monitor</h3>
+            <p className="eyebrow">NOAA Solar Wind Style</p>
+            <h3 id="overview-combined-wind-title">Solar Wind All-in-One Monitor</h3>
             <p>
               IMF Bz/Bt, density, speed, and temperature aligned on one time view for fast comparison.
             </p>
@@ -2583,7 +2962,7 @@ function OverviewVisualPanels({
         <div className="overview-visual-heading">
           <div>
             <p className="eyebrow">Geomagnetic</p>
-            <h3 id="overview-kp-title">Kp index trend</h3>
+            <h3 id="overview-kp-title">Kp Index Trend</h3>
             <p>{summary.kp === null ? "Kp unavailable" : `Current Kp ${summary.kp.toFixed(1)}`} · {summary.gScale}</p>
           </div>
           <Button type="default" onClick={() => onNavigate("overview-1-kp")}>Open Kp</Button>
@@ -2630,9 +3009,9 @@ function OverviewVisualPanels({
       <section className="panel overview-visual-panel overview-visual-panel-wide" aria-labelledby="overview-wind-title">
         <div className="overview-visual-heading">
           <div>
-            <p className="eyebrow">Solar wind and field</p>
-            <h3 id="overview-wind-title">Upstream plasma trend</h3>
-            <p>{formatOptional(summary.solarWindSpeed ?? latestWind?.speedKmPerSec, "km/s")} speed - {formatOptional(latestWind?.densityPerCc, "/cc", 1)} density</p>
+            <p className="eyebrow">Solar Wind And Field</p>
+            <h3 id="overview-wind-title">Upstream Plasma Trend</h3>
+            <p>{formatOptional(latestWind?.speedKmPerSec ?? summary.solarWindSpeed, "km/s")} speed - {formatOptional(latestWind?.densityPerCc, "/cc", 1)} density</p>
           </div>
           <Button type="default" onClick={() => onNavigate("overview-1-plasma")}>Open Solar Wind</Button>
         </div>
@@ -2656,11 +3035,24 @@ function SolarWindCombinedChart({
   magneticField: MagneticFieldResponse;
 }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-  const plasmaPoints = solarWind.data.slice(-360);
-  const fieldPoints = magneticField.data.slice(-360);
+  const [dataMode, setDataMode] = useState<"live" | "past">("live");
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const baseWindow = dataMode === "live" ? 360 : 720;
+  const visibleLength = Math.max(24, Math.ceil(baseWindow / zoomLevel));
+  const selectWindow = <T,>(points: T[]) => {
+    if (dataMode === "past" && points.length > visibleLength) {
+      const end = Math.max(visibleLength, points.length - visibleLength);
+      return points.slice(Math.max(0, end - visibleLength), end);
+    }
+    return points.slice(-visibleLength);
+  };
+  const plasmaPoints = selectWindow(solarWind.data);
+  const fieldPoints = selectWindow(magneticField.data);
   const maxLength = Math.max(plasmaPoints.length, fieldPoints.length);
   const latestWind = plasmaPoints.at(-1);
   const latestField = fieldPoints.at(-1);
+  const canZoomIn = zoomLevel < 8 && maxLength > 36;
+  const canZoomOut = zoomLevel > 1;
   const lanes = [
     {
       key: "imf",
@@ -2757,6 +3149,7 @@ function SolarWindCombinedChart({
   };
 
   const latestTime = latestWind?.timestamp ?? latestField?.timestamp ?? solarWind.lastUpdated ?? magneticField.lastUpdated;
+  const earliestTime = plasmaPoints[0]?.timestamp ?? fieldPoints[0]?.timestamp ?? null;
   const activeWind = getAlignedPoint(plasmaPoints, activeIndex);
   const activeField = getAlignedPoint(fieldPoints, activeIndex);
   const activeTime = activeWind?.timestamp ?? activeField?.timestamp ?? latestTime;
@@ -2790,7 +3183,52 @@ function SolarWindCombinedChart({
       <div className="combined-wind-chart-top">
         <span>{maxLength.toLocaleString()} aligned samples</span>
         <span>Hover or tap the plot to inspect aligned values</span>
-        <span>{latestTime ? `Latest ${formatDateTime(latestTime)} UTC` : "Latest time unavailable"}</span>
+        <span>
+          {earliestTime && latestTime
+            ? `${dataMode === "past" ? "Past" : "Live"} window ${formatDateTime(earliestTime)} - ${formatDateTime(latestTime)} UTC`
+            : "Time window unavailable"}
+        </span>
+      </div>
+      <div className="combined-wind-controls">
+        <div className="combined-mode-toggle" aria-label="Solar wind data window">
+          <button
+            type="button"
+            className={dataMode === "live" ? "is-active" : ""}
+            onClick={() => {
+              setDataMode("live");
+              setHoverIndex(null);
+            }}
+          >
+            Live
+          </button>
+          <button
+            type="button"
+            className={dataMode === "past" ? "is-active" : ""}
+            onClick={() => {
+              setDataMode("past");
+              setHoverIndex(null);
+            }}
+          >
+            Past
+          </button>
+        </div>
+        <ChartZoomControls
+          canZoomIn={canZoomIn}
+          canZoomOut={canZoomOut}
+          onZoomIn={() => {
+            setZoomLevel((level) => Math.min(8, level * 2));
+            setHoverIndex(null);
+          }}
+          onZoomOut={() => {
+            setZoomLevel((level) => Math.max(1, Math.floor(level / 2)));
+            setHoverIndex(null);
+          }}
+          onReset={() => {
+            setZoomLevel(1);
+            setHoverIndex(null);
+          }}
+          label={`${maxLength.toLocaleString()} visible points`}
+        />
       </div>
       <div className="combined-hover-readout" aria-live="polite">
         <strong>{activeTime ? `${formatDateTime(activeTime)} UTC` : "Selected sample"}</strong>
@@ -2961,8 +3399,8 @@ function GloTecGlobePanel({ glotec }: { glotec: GloTecResponse }) {
     <section className="panel glotec-panel" aria-labelledby="glotec-title">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">NOAA GloTEC live globe</p>
-          <h2 id="glotec-title">TEC on globe</h2>
+          <p className="eyebrow">NOAA GloTEC Live Globe</p>
+          <h2 id="glotec-title">TEC On Globe</h2>
         </div>
         <FreshnessBadge freshness={glotec.freshness} />
       </div>
@@ -3152,7 +3590,7 @@ function SolarImageryGallery({ solarActivity }: { solarActivity: SolarActivityRe
       <div className="section-heading">
         <div>
           <p className="eyebrow">Current solar imagery</p>
-          <h2 id="solar-imagery-gallery-title">Recent Sun views</h2>
+          <h2 id="solar-imagery-gallery-title">Recent Sun Views</h2>
         </div>
         <span className="source-tag">{featuredImage?.label ?? "NASA SDO"} live references</span>
       </div>
@@ -3251,7 +3689,7 @@ function XrayFluxProductPanel({ solarActivity }: { solarActivity: SolarActivityR
       <div className="section-heading">
         <div>
           <p className="eyebrow">NOAA SWPC product style</p>
-          <h2 id="xray-product-title">GOES X-ray flux plot</h2>
+          <h2 id="xray-product-title">GOES X-ray Flux Plot</h2>
         </div>
         <div className="source-stack">
           <span className="source-tag">{xray.source}</span>
@@ -3530,7 +3968,7 @@ function RangeSelector({ value, onChange }: { value: string; onChange: (range: s
   );
 }
 
-function ConditionPanel({ summary }: { summary: DashboardSummary }) {
+function ConditionPanel({ summary, onOpen }: { summary: DashboardSummary; onOpen?: () => void }) {
   const isUnavailable = summary.freshness === "unavailable";
   const conditionCopy = isUnavailable
     ? "Live geomagnetic inputs are unavailable. Default scale values are shown until the NOAA feed returns."
@@ -3538,7 +3976,19 @@ function ConditionPanel({ summary }: { summary: DashboardSummary }) {
   const updatedAt = formatOperationalDateTime(summary.lastUpdated);
 
   return (
-    <article className={`panel condition-panel severity-${summary.overallSeverity} freshness-${summary.freshness}`}>
+    <article
+      className={`panel condition-panel severity-${summary.overallSeverity} freshness-${summary.freshness} ${onOpen ? "clickable-panel" : ""}`}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (!onOpen) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+    >
       <div className="panel-heading">
         <span className="icon-disc">
           <Activity aria-hidden="true" size={22} />
@@ -3574,25 +4024,46 @@ function MetricPanel({
   title,
   value,
   detail,
-  severity
+  severity,
+  onOpen
 }: {
   icon: typeof Gauge;
   title: string;
   value: string;
   detail: string;
   severity: SeverityLevel;
+  onOpen?: () => void;
 }) {
   const [isReadOpen, setIsReadOpen] = useState(false);
   const termInfo = getTermReadContent(title);
   return (
-    <article className="panel metric-panel">
+    <article
+      className={`panel metric-panel ${onOpen ? "clickable-panel" : ""}`}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (!onOpen) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+    >
       <div className="metric-header">
         <span className={`icon-disc severity-${severity}`}>
           <Icon aria-hidden="true" size={20} />
         </span>
         <span className={`status-pill severity-${severity}`}>{severityLabels[severity]}</span>
       </div>
-      <button className="metric-read-pill" type="button" onClick={() => setIsReadOpen(true)}>
+      <button
+        className="metric-read-pill"
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          setIsReadOpen(true);
+        }}
+      >
         Read
       </button>
       <p className="metric-title">{title}</p>
@@ -3639,7 +4110,7 @@ function SolarWindPanel({
         }
       />
       <div className="wind-layout">
-        <InstrumentStat label="Speed" value={formatOptional(summary.solarWindSpeed ?? latest?.speedKmPerSec, "km/s")} />
+        <InstrumentStat label="Speed" value={formatOptional(latest?.speedKmPerSec ?? summary.solarWindSpeed, "km/s")} />
         <InstrumentStat label="Density" value={formatOptional(latest?.densityPerCc, "/cc", 1)} />
         <InstrumentStat label="Temperature" value={formatOptional(latest?.temperatureK, "K", 0)} icon={Thermometer} />
       </div>
@@ -3654,10 +4125,10 @@ function SolarWindPanel({
         <article className="split-chart-card">
           <div className="split-chart-heading">
             <div>
-              <p className="eyebrow">Speed trend</p>
-              <h3>Solar wind speed</h3>
+              <p className="eyebrow">Speed Trend</p>
+              <h3>Solar Wind Speed</h3>
             </div>
-            <strong>{formatOptional(summary.solarWindSpeed ?? latest?.speedKmPerSec, "km/s")}</strong>
+            <strong>{formatOptional(latest?.speedKmPerSec ?? summary.solarWindSpeed, "km/s")}</strong>
           </div>
           <LineChart
             ariaLabel="Individual solar wind speed chart"
@@ -3669,7 +4140,7 @@ function SolarWindPanel({
         <article className="split-chart-card">
           <div className="split-chart-heading">
             <div>
-              <p className="eyebrow">Density trend</p>
+              <p className="eyebrow">Density Trend</p>
               <h3>Plasma density</h3>
             </div>
             <strong>{formatOptional(latest?.densityPerCc, "/cc", 1)}</strong>
@@ -3692,7 +4163,7 @@ function SolarWindPanel({
         <div className="chart-detail-grid">
           <Card size="small">
             <Text type="secondary">Latest speed</Text>
-            <strong>{formatOptional(summary.solarWindSpeed ?? latest?.speedKmPerSec, "km/s")}</strong>
+            <strong>{formatOptional(latest?.speedKmPerSec ?? summary.solarWindSpeed, "km/s")}</strong>
           </Card>
           <Card size="small">
             <Text type="secondary">Latest density</Text>
@@ -3811,27 +4282,44 @@ function ScalesPanel({ scales }: { scales: ScalesResponse }) {
   );
 }
 
-const CONTRIBUTOR_GROUPS = [
+const CONTRIBUTOR_INTERNS = [
+  { name: "Zain", role: "Research Intern" },
+  { name: "Ramsha", role: "Research Intern" },
+  { name: "Mubasir", role: "Research Intern" }
+];
+
+const CONTRIBUTOR_TEAM = [
   {
-    role: "Research Direction",
-    names: ["GNSS Research Lab", "NCGSA / IST Islamabad"],
-    detail: "Defines the observatory scope, space-weather terminology, and GNSS research priorities."
+    name: "Abdul Muteen",
+    role: "Research Assistant",
+    focus: "Project Supervisor",
+    photo: "/assets/contributors/syed-muhammad-ali.jpeg"
   },
   {
-    role: "Dashboard Engineering",
-    names: ["Frontend implementation team", "Backend API integration team"],
-    detail: "Builds the dashboard pages, interaction model, live API adapters, charts, and responsive UI."
+    name: "Daniyal Raza",
+    role: "Team Lead, NCGSA",
+    focus: "GNSS Specialist",
+    photo: "/assets/contributors/daniyal-raza.png"
   },
   {
-    role: "Data And Imagery Sources",
-    names: ["NOAA SWPC", "NASA DONKI", "NASA SDO"],
-    detail: "Provides the operational public feeds, event records, scale references, and solar imagery used in the portal."
+    name: "Syed Muhammad Ali",
+    role: "Research Associate",
+    focus: "Web Developer",
+    photo: "/assets/contributors/abdul-muteen.jpg"
   },
   {
-    role: "Quality And Review",
-    names: ["UI/UX review", "Data validation support"],
-    detail: "Reviews spacing, readability, source attribution, and final dashboard presentation."
+    name: "Hira Tassadaq",
+    role: "Research Assistant",
+    focus: "Software solution",
+    photo: "/assets/contributors/hira-tassadaq.png"
   }
+];
+
+const CONTRIBUTOR_ADVISORS = [
+  { name: "Dr. Najam Abbas", role: "Chairman, NCGSA", photo: "/assets/contributors/advisor-1.png" },
+  { name: "Usama Ahmad", role: "NCGSA Coordinator", photo: "/assets/contributors/advisor-2.jpg" },
+  { name: "Dr. Imran", role: "Assistant Professor", photo: "/assets/contributors/advisor-3.jpg" },
+  { name: "Dr. Munawar Shah", role: "Assistant Professor", photo: "/assets/contributors/advisor-4.png" }
 ];
 
 function GlossaryPanel({ compact = false }: { compact?: boolean }) {
@@ -3925,34 +4413,68 @@ function GlossaryPanel({ compact = false }: { compact?: boolean }) {
 
 function ContributorsPanel({ compact = false }: { compact?: boolean }) {
   return (
-    <section className={`panel contributors-panel ${compact ? "contributors-panel-compact" : ""}`} aria-labelledby="contributors-title">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Project credits</p>
-          <h2 id="contributors-title">Contributors</h2>
-        </div>
-        <span className="source-tag">Mock design</span>
+    <section className={`contributors-panel ${compact ? "contributors-panel-compact" : ""}`} aria-labelledby="contributors-title">
+      <div className="contributors-breadcrumb" aria-label="Breadcrumb">
+        <span>Dashboard</span>
+        <span>/</span>
+        <strong>Contributors</strong>
       </div>
-      <p className="contributors-intro">
-        This credit board is prepared for the final project team list. Replace the placeholders with confirmed names,
-        roles, institutes, contribution areas, and optional reference links before publication.
-      </p>
-      <div className="contributors-grid" role="list" aria-label="Contributor groups">
-        {CONTRIBUTOR_GROUPS.map((group) => (
-          <article className="contributor-card" key={group.role} role="listitem">
-            <span className="contributor-role">{group.role}</span>
-            <ul>
-              {group.names.map((name) => (
-                <li key={name}>{name}</li>
+
+      <header className="contributors-hero">
+        <p className="eyebrow">NCGSA Space Weather Observatory</p>
+        <h2 id="contributors-title">Meet the Team</h2>
+        <p>The people behind the NCGSA Space Weather Observatory.</p>
+      </header>
+
+      <div className="contributors-layout">
+        <section className="contributors-lead-section" aria-labelledby="contributors-lead-title">
+          <h3 id="contributors-lead-title">Intern Team</h3>
+          <article className="contributors-intern-card">
+            <div className="contributors-intern-grid">
+              {CONTRIBUTOR_INTERNS.map((intern) => (
+                <div className="contributor-mini" key={intern.name}>
+                  <div className="contributor-photo contributor-photo-small" aria-hidden="true" />
+                  <strong>{intern.name}</strong>
+                  <span>{intern.role}</span>
+                </div>
               ))}
-            </ul>
-            <p>{group.detail}</p>
+            </div>
           </article>
-        ))}
-      </div>
-      <div className="contributors-footer">
-        <strong>Credit format</strong>
-        <span>Name / institute / role / contribution area / optional reference link.</span>
+        </section>
+
+        <section aria-labelledby="ncgsa-team-title">
+          <h3 id="ncgsa-team-title">NCGSA Team</h3>
+          <div className="contributors-team-grid">
+            {CONTRIBUTOR_TEAM.map((member, index) => (
+              <article className="contributors-member-card" key={`${member.role}-${index}`}>
+                <div className="contributor-photo contributor-photo-medium">
+                  <img src={member.photo} alt={member.name} loading="lazy" />
+                </div>
+                <h4>{member.name}</h4>
+                <p>{member.role}</p>
+                <span className="contributor-line" aria-hidden="true" />
+                <small>{member.focus}</small>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section aria-labelledby="advisors-title">
+          <h3 id="advisors-title">Specialists & Advisors</h3>
+          <div className="contributors-advisor-grid">
+            {CONTRIBUTOR_ADVISORS.map((advisor) => (
+              <article className="contributors-advisor-card" key={advisor.name}>
+                <div className="contributor-photo contributor-photo-advisor">
+                  <img src={advisor.photo} alt={advisor.name} loading="lazy" />
+                </div>
+                <div>
+                  <h4>{advisor.name}</h4>
+                  <p>{advisor.role}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
       </div>
     </section>
   );

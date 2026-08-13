@@ -322,6 +322,7 @@ export function createLiveSpaceWeatherService(
       }
     });
     const lastUpdated = latestOf([solarWind.lastUpdated, kp.lastUpdated, scales.lastUpdated, alerts.lastUpdated]);
+    const summaryFreshness = calculateFreshness(lastUpdated, 30);
 
     return {
       condition: classification.condition,
@@ -337,7 +338,7 @@ export function createLiveSpaceWeatherService(
       latestFlare: null,
       activeAlerts: alerts.alerts.filter((alert) => alert.status === "active").length,
       source: "NOAA_SWPC",
-      freshness: combineFreshness([solarWind.freshness, kp.freshness, scales.freshness])
+      freshness: summaryFreshness
     };
   }
 
@@ -527,15 +528,30 @@ function combineFreshness(values: Freshness[]): Freshness {
 }
 
 function buildPastSolarWindFallback(range: DashboardRange): SolarWindPoint[] {
-  return buildPastMagneticFieldFallback(range).map((field, index) => {
-    const drift = Math.sin(index / 14);
-    const densityWave = Math.cos(index / 11);
+  let speed = 398 + seededJitter(17, 8);
+  let density = 8.8 + seededJitter(29, 0.6);
+  let temperature = 31_000 + seededJitter(43, 6_000);
+  const fields = buildPastMagneticFieldFallback(range);
+  const densityStepIndex = Math.floor(fields.length * 0.82);
 
+  return fields.map((field, index) => {
+    const speedDrift = range === "2h" || range === "6h" ? 0.09 : 0.025;
+    speed = clamp(speed + speedDrift + seededJitter(index + 101, 2.4), 345, 520);
+
+    if (index === densityStepIndex) {
+      density = Math.max(density, 11.4 + seededJitter(index + 201, 0.9));
+    } else if (index > densityStepIndex) {
+      density = clamp(density + seededJitter(index + 211, 0.42), 10.2, 13.4);
+    } else {
+      density = clamp(density + seededJitter(index + 221, 0.34), 7.6, 10.2);
+    }
+
+    temperature = clamp(temperature + seededJitter(index + 301, 2_600), 18_000, 92_000);
     return {
       timestamp: field.timestamp,
-      densityPerCc: roundTo(3.1 + densityWave * 0.7 + (index % 9) * 0.03, 2),
-      speedKmPerSec: roundTo(368 + drift * 18 + (index % 17) * 0.55, 1),
-      temperatureK: Math.round(28500 + Math.sin(index / 9) * 5200 + (index % 13) * 180),
+      densityPerCc: roundTo(density, 2),
+      speedKmPerSec: roundTo(speed, 1),
+      temperatureK: Math.round(temperature),
       bzNt: field.bzGsmNt,
       btNt: field.btNt
     };
@@ -555,23 +571,40 @@ function buildPastMagneticFieldFallback(range: DashboardRange): MagneticFieldPoi
   const endMs = Date.now() - 90 * 60_000;
   const startMs = endMs - (count - 1) * intervalMinutes * 60_000;
 
+  let bx = seededJitter(501, 3.2);
+  let by = 4.8 + seededJitter(503, 2.6);
+  let bz = -0.8 + seededJitter(509, 3.4);
+
   return Array.from({ length: count }, (_unused, index) => {
     const timestamp = new Date(startMs + index * intervalMinutes * 60_000).toISOString();
-    const bz = Math.sin(index / 10) * 2.2 - Math.cos(index / 23) * 0.8;
-    const by = Math.cos(index / 13) * 4.5;
-    const bx = Math.sin(index / 17) * 2.5;
-    const bt = Math.sqrt(bx ** 2 + by ** 2 + bz ** 2) + 1.8;
+    bx = clamp(bx + seededJitter(index + 601, 0.8), -7, 7);
+    by = clamp(by + seededJitter(index + 701, 1.1), -9, 11);
+    bz = clamp(bz + seededJitter(index + 801, 1.0), -8, 7);
+    const bt = Math.sqrt(bx ** 2 + by ** 2 + bz ** 2) + 1.3 + Math.abs(seededJitter(index + 901, 1.6));
 
     return {
       timestamp,
       bxGsmNt: roundTo(bx, 2),
       byGsmNt: roundTo(by, 2),
       bzGsmNt: roundTo(bz, 2),
-      longitudeGsmDeg: roundTo(180 + Math.sin(index / 19) * 95, 2),
-      latitudeGsmDeg: roundTo(Math.cos(index / 21) * 12, 2),
+      longitudeGsmDeg: roundTo(170 + seededJitter(index + 1001, 120), 2),
+      latitudeGsmDeg: roundTo(seededJitter(index + 1101, 22), 2),
       btNt: roundTo(bt, 2)
     };
   });
+}
+
+function seededJitter(seed: number, amplitude: number): number {
+  return (seededUnit(seed) - 0.5) * amplitude;
+}
+
+function seededUnit(seed: number): number {
+  const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 function buildPastKpFallback(): KpPoint[] {

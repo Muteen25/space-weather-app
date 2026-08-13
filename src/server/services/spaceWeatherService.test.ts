@@ -1,6 +1,30 @@
 import { createLiveSpaceWeatherService } from "./spaceWeatherService";
 
 describe("space weather service event resilience", () => {
+  it("uses the displayed dashboard timestamp for summary freshness", async () => {
+    const now = new Date().toISOString();
+    const stale = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
+    const client = {
+      getSolarWind: vi.fn(async () => [{ timestamp: now, speedKmPerSec: 438, densityPerCc: 5, temperatureK: 100000, bzNt: 0.5, btNt: 4 }]),
+      getKp: vi.fn(async () => [{ timestamp: stale, value: 1.3 }]),
+      getScales: vi.fn(async () => ({
+        current: { timestamp: stale, gScale: "G0", rScale: "R0", sScale: "S0" },
+        forecast: []
+      })),
+      getAlerts: vi.fn(async () => []),
+      getSourceHealth: vi.fn(() => [])
+    };
+    const service = createLiveSpaceWeatherService(client as never, {
+      getEvents: vi.fn(),
+      getSourceHealth: vi.fn(() => [])
+    } as never);
+
+    await expect(service.getDashboardSummary()).resolves.toMatchObject({
+      lastUpdated: now,
+      freshness: "fresh"
+    });
+  });
+
   it("returns stale past solar wind and Kp series when NOAA products are unavailable", async () => {
     const failingClient = {
       getSolarWind: vi.fn(async () => {
