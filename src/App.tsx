@@ -349,17 +349,18 @@ const HEADER_AFFILIATIONS = [
 const BRAND_LOGO_SRC = "/assets/ncgsa-space-weather-logo.png";
 
 const FOOTER_LOGOS = [
-  { name: "Ministry of Planning, Development and Special Initiatives", src: "/assets/footer-planning-ministry.png" },
-  { name: "Higher Education Commission", src: "/assets/footer-hec.png" },
-  { name: "National Center of GIS and Space Applications", src: "/assets/footer-ncgsa.png" },
-  { name: "Institute of Space Technology", src: "/assets/footer-ist.png" },
-  { name: "Global Navigation Satellite System Lab", src: "/assets/footer-gnss.png" }
+  { name: "Ministry of Planning, Development and Special Initiatives", src: "/assets/footer-planning-ministry.png", href: "https://www.pc.gov.pk/" },
+  { name: "Higher Education Commission", src: "/assets/footer-hec.png", href: "https://www.hec.gov.pk/english/Pages/default.aspx" },
+  { name: "National Center of GIS and Space Applications", src: "/assets/footer-ncgsa.png", href: "https://ncgsa.org.pk/" },
+  { name: "Institute of Space Technology", src: "/assets/footer-ist.png", href: "https://www.ist.edu.pk/" },
+  { name: "Global Navigation Satellite System Lab", src: "/assets/footer-gnss.png", href: "https://gnss.ncgsa.org.pk/wp/" }
 ];
 
 const FOOTER_LINKS = {
-  website: "https://gnss.ncgsa.org.pk/wp/",
-  linkedin: "https://www.linkedin.com/company/ncgsa/",
-  facebook: "https://facebook.com/ncgsa.ist"
+  gnssWebsite: "https://gnss.ncgsa.org.pk/wp/",
+  gnssLinkedin: "https://www.linkedin.com/gnss-research-lab-ncgsa",
+  ncgsaWebsite: "https://ncgsa.org.pk/",
+  ncgsaLinkedin: "https://www.linkedin.com/company/ncgsa"
 };
 
 const HERO_IMAGES = [
@@ -1425,10 +1426,9 @@ function LandingPage({
 
       <section className="phenomena-section" id="phenomena" aria-labelledby="phenomena-title">
         <div className="phenomena-heading">
-          <h2 id="phenomena-title">Explore the Observatory</h2>
+          <h2 id="phenomena-title">Explore the Space Weather Observatory</h2>
           <p>
-            Each card opens a main dashboard layer. Use the sub-tab chips for focused pages like X-ray Flux, Kp Index,
-            TEC, and GNSS impacts.
+            Monitor the Sun-Earth environment through four dedicated observation portals.
           </p>
           <a href="/observatory" onClick={(event) => { event.preventDefault(); onLaunch("overview"); }}>
             View All Sections
@@ -1548,9 +1548,9 @@ function ObservatoryFooter({ onNavigate }: { onNavigate: (section: string) => vo
       <div className="footer-supported">
         <div className="footer-logo-row" aria-label="Institutional logos">
           {FOOTER_LOGOS.map((logo) => (
-            <div className="footer-logo-card" key={logo.name}>
+            <a className="footer-logo-card" href={logo.href} key={logo.name} target="_blank" rel="noreferrer" aria-label={`Open ${logo.name} website`}>
               <img src={logo.src} alt={logo.name} />
-            </div>
+            </a>
           ))}
         </div>
       </div>
@@ -1569,18 +1569,14 @@ function ObservatoryFooter({ onNavigate }: { onNavigate: (section: string) => vo
             <MapPin aria-hidden="true" size={18} />
             1, Islamabad Highway, Islamabad 44000
           </span>
-          <a href={FOOTER_LINKS.website} target="_blank" rel="noreferrer">
+          <a href={FOOTER_LINKS.gnssWebsite} target="_blank" rel="noreferrer">
             <Globe2 aria-hidden="true" size={18} />
             GNSS Research Lab Website
           </a>
           <div className="footer-socials" aria-label="Social links">
-            <a href={FOOTER_LINKS.linkedin} target="_blank" rel="noreferrer">
+            <a href={FOOTER_LINKS.gnssLinkedin} target="_blank" rel="noreferrer">
               <Linkedin aria-hidden="true" size={18} />
               LinkedIn
-            </a>
-            <a href={FOOTER_LINKS.facebook} target="_blank" rel="noreferrer">
-              <FacebookIcon />
-              Facebook
             </a>
           </div>
         </address>
@@ -1619,9 +1615,9 @@ function InstitutionalFooter({ onNavigate }: { onNavigate: (section: string) => 
       <div className="footer-supported">
         <div className="footer-logo-row" aria-label="Institutional logos">
           {FOOTER_LOGOS.map((logo) => (
-            <div className="footer-logo-card" key={logo.name}>
+            <a className="footer-logo-card" href={logo.href} key={logo.name} target="_blank" rel="noreferrer" aria-label={`Open ${logo.name} website`}>
               <img src={logo.src} alt={logo.name} />
-            </div>
+            </a>
           ))}
         </div>
       </div>
@@ -1631,36 +1627,50 @@ function InstitutionalFooter({ onNavigate }: { onNavigate: (section: string) => 
           <section className="footer-panel footer-identity" aria-labelledby="footer-observatory-title">
             <p className="footer-section-label">GNSS Research Lab</p>
             <h2 id="footer-observatory-title">NCGSA Space Weather Observatory</h2>
-            <p className="footer-affiliation">National Center of GIS and Space Applications</p>
-            <p className="footer-description">Institute of Space Technology, Islamabad, Pakistan</p>
+            <p className="footer-affiliation">Real-time monitoring for the Sun-Earth environment and GNSS impacts.</p>
+            <p className="footer-description">Operational dashboard and research data hub.</p>
+            <address className="footer-contact footer-contact-inline">
+              <p className="footer-section-label">GNSS Contact</p>
+              <span className="footer-contact-row">
+                <MapPin aria-hidden="true" size={24} />
+                1, Islamabad Highway, Islamabad 44000
+              </span>
+              <div className="footer-socials" aria-label="GNSS social links">
+                <a href={FOOTER_LINKS.gnssLinkedin} target="_blank" rel="noreferrer">
+                  <span className="footer-social-icon">
+                    <Linkedin aria-hidden="true" size={20} />
+                  </span>
+                  LinkedIn
+                </a>
+                <a href={FOOTER_LINKS.gnssWebsite} target="_blank" rel="noreferrer">
+                  <span className="footer-social-icon">
+                    <Globe2 aria-hidden="true" size={20} />
+                  </span>
+                  Website
+                </a>
+              </div>
+            </address>
           </section>
 
-          <address className="footer-panel footer-contact">
-            <p className="footer-section-label">Contact</p>
-            <span className="footer-contact-row">
-              <MapPin aria-hidden="true" size={24} />
-              1, Islamabad Highway, Islamabad 44000
-            </span>
-            <a className="footer-contact-row" href={FOOTER_LINKS.website} target="_blank" rel="noreferrer">
-              <Globe2 aria-hidden="true" size={24} />
-              GNSS Research Lab Website
-            </a>
-            <div className="footer-socials" aria-label="Social links">
-              <a href={FOOTER_LINKS.linkedin} target="_blank" rel="noreferrer">
+          <section className="footer-panel footer-ncgsa-details" aria-labelledby="footer-ncgsa-title">
+            <p className="footer-section-label">NCGSA</p>
+            <h3 id="footer-ncgsa-title">National Center of GIS and Space Applications</h3>
+            <p>Institute of Space Technology, Islamabad, Pakistan</p>
+            <div className="footer-socials footer-identity-socials" aria-label="NCGSA social links">
+              <a href={FOOTER_LINKS.ncgsaLinkedin} target="_blank" rel="noreferrer">
                 <span className="footer-social-icon">
                   <Linkedin aria-hidden="true" size={20} />
                 </span>
                 LinkedIn
               </a>
-              <a href={FOOTER_LINKS.facebook} target="_blank" rel="noreferrer">
+              <a href={FOOTER_LINKS.ncgsaWebsite} target="_blank" rel="noreferrer">
                 <span className="footer-social-icon">
-                  <FacebookIcon size={20} />
+                  <Globe2 aria-hidden="true" size={20} />
                 </span>
-                Facebook
+                Website
               </a>
             </div>
-          </address>
-
+          </section>
           <nav className="footer-panel footer-quick-links" aria-label="Footer quick links">
             <p className="footer-section-label">Explore</p>
             {quickLinks.map((link) => (
@@ -4306,20 +4316,14 @@ const CONTRIBUTOR_TEAM = [
     role: "Research Associate",
     focus: "Web Developer",
     photo: "/assets/contributors/abdul-muteen.jpg"
-  },
-  {
-    name: "Hira Tassadaq",
-    role: "Research Assistant",
-    focus: "Software solution",
-    photo: "/assets/contributors/hira-tassadaq.png"
   }
 ];
 
 const CONTRIBUTOR_ADVISORS = [
   { name: "Dr. Najam Abbas", role: "Chairman, NCGSA", photo: "/assets/contributors/advisor-1.png" },
-  { name: "Usama Ahmad", role: "NCGSA Coordinator", photo: "/assets/contributors/advisor-2.jpg" },
-  { name: "Dr. Imran", role: "Assistant Professor", photo: "/assets/contributors/advisor-3.jpg" },
-  { name: "Dr. Munawar Shah", role: "Assistant Professor", photo: "/assets/contributors/advisor-4.png" }
+  { name: "Usama Ahmad", role: "NCGSA Coordinator", photo: "/assets/contributors/advisor-2.jpg" }
+  // { name: "Dr. Imran", role: "Assistant Professor", photo: "/assets/contributors/advisor-3.jpg" },
+  // { name: "Dr. Munawar Shah", role: "Assistant Professor", photo: "/assets/contributors/advisor-4.png" }
 ];
 
 function GlossaryPanel({ compact = false }: { compact?: boolean }) {
@@ -4434,8 +4438,10 @@ function ContributorsPanel({ compact = false }: { compact?: boolean }) {
               {CONTRIBUTOR_INTERNS.map((intern) => (
                 <div className="contributor-mini" key={intern.name}>
                   <div className="contributor-photo contributor-photo-small" aria-hidden="true" />
-                  <strong>{intern.name}</strong>
-                  <span>{intern.role}</span>
+                  <div className="contributor-card-copy">
+                    <strong>{intern.name}</strong>
+                    <span>{intern.role}</span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -4450,10 +4456,12 @@ function ContributorsPanel({ compact = false }: { compact?: boolean }) {
                 <div className="contributor-photo contributor-photo-medium">
                   <img src={member.photo} alt={member.name} loading="lazy" />
                 </div>
-                <h4>{member.name}</h4>
-                <p>{member.role}</p>
-                <span className="contributor-line" aria-hidden="true" />
-                <small>{member.focus}</small>
+                <div className="contributor-card-copy">
+                  <h4>{member.name}</h4>
+                  <p>{member.role}</p>
+                  <span className="contributor-line" aria-hidden="true" />
+                  <small>{member.focus}</small>
+                </div>
               </article>
             ))}
           </div>
