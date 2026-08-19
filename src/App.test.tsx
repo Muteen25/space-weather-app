@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import App from "./App";
 
-const API_BASE_URL = "https://space-weather-app-production-48ab.up.railway.app";
+const API_BASE_URL = "http://127.0.0.1:5000";
 const apiUrl = (endpoint: string) => `${API_BASE_URL}${endpoint}`;
 
 const dashboardResponse = {
@@ -317,9 +317,16 @@ describe("Space Weather dashboard", () => {
 
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "Space Weather Observatory" })).toBeInTheDocument();
+    expect(screen.getByText("Weather")).toBeInTheDocument();
+    expect(screen.getByText("Observatory")).toBeInTheDocument();
     expect(screen.getByText("GNSS Research Lab")).toBeInTheDocument();
-    expect(screen.getByText("Real-time space environment monitoring")).toBeInTheDocument();
+    expect(screen.getByText("Real-Time Space Environment Monitoring")).toBeInTheDocument();
+    expect(screen.getByText(/UTC/)).toBeInTheDocument();
+    expect(screen.getByText(/PKT/)).toBeInTheDocument();
+    expect(screen.queryByText("Real-time monitoring for the Sun-Earth environment and GNSS impacts.")).not.toBeInTheDocument();
+    expect(screen.getAllByText("National Center of GIS and Space Applications").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Institute of Space Technology").length).toBeGreaterThan(0);
+    expect(screen.getByText("1, Islamabad Highway, Islamabad 44000")).toBeInTheDocument();
     expect(screen.getByLabelText("Space Weather Observatory landing hero").getAttribute("style")).toContain("/landing/hero-space-weather.png");
     expect(screen.getByRole("link", { name: "Live Dashboard" })).toHaveAttribute("href", "/observatory");
     expect(screen.queryByRole("link", { name: "View Phenomena" })).not.toBeInTheDocument();
@@ -340,7 +347,7 @@ describe("Space Weather dashboard", () => {
     expect(screen.getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("Kp 4.7")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Current space weather conditions" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "GOES X-ray flux" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "X-ray flux" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Kp index trend" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Upstream plasma trend" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Observatory layers" })).not.toBeInTheDocument();
@@ -362,6 +369,7 @@ describe("Space Weather dashboard", () => {
 
     expect(screen.getByLabelText("Mission navigation")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Institutional footer")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Switch to light mode" }));
 
@@ -421,34 +429,42 @@ describe("Space Weather dashboard", () => {
     const navigation = within(screen.getByLabelText("Mission navigation"));
 
     fireEvent.click(navigation.getByText("Sun"));
-    expect(screen.getByRole("heading", { name: "SUN" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Sun" })).toBeInTheDocument();
-    expect(screen.getByText("Current X-ray class")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Sun" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Sun / X-ray Flux" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sun / Solar Flares" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sun / Sunspots" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sun / Coronal Mass Ejections" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sun / Solar Imagery" })).toBeInTheDocument();
+    expect(screen.getAllByText("Current X-ray class").length).toBeGreaterThan(0);
     expect(screen.getAllByText("M2.4").length).toBeGreaterThan(0);
-    expect(screen.getByText("GOES Latest X-Ray Event 1-8A")).toBeInTheDocument();
-    expect(screen.getByText("GOES X-ray flux plot")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "GOES X-ray flux plot for 1-8 A and 0.5-4 A channels" })).toBeInTheDocument();
+    expect(screen.queryByText("GOES Latest X-Ray Event 1-8A")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "X-ray Flux Plot" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "X-ray flux plot for 1-8 A and 0.5-4 A channels" })).toBeInTheDocument();
     expect(screen.getAllByText("Solar flare M2.4").length).toBeGreaterThan(0);
     expect(screen.getByText("Region records")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Recent Sun views" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Recent Sun Views" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /HMI Intensity/i })).toHaveAttribute("href", "https://sdo.gsfc.nasa.gov/data/");
 
     fireEvent.click(navigation.getByText("Solar Wind & IMF"));
-    expect(screen.getByRole("heading", { name: "SOLAR WIND & IMF" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Solar Wind & IMF" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Solar wind" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Magnetic field" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Solar Wind & IMF" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Solar Wind & IMF / Solar Wind Plasma" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Solar Wind & IMF / Solar Wind Trends" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Solar Wind & IMF / IMF Bz + Bt" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Solar wind" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("heading", { name: "Magnetic field" }).length).toBeGreaterThan(0);
 
     fireEvent.click(navigation.getByText("Ionosphere"));
-    expect(screen.getByRole("heading", { name: "IONOSPHERE" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Ionosphere" })).toBeInTheDocument();
-    expect(screen.getByText("TEC on globe")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Ionosphere" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Ionosphere / Ionosphere & TEC" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ionosphere / GNSS Impacts" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "TEC On Globe" })).toBeInTheDocument();
     expect(screen.getByText("Active geomagnetic or radio conditions may affect some precision use cases.")).toBeInTheDocument();
 
     fireEvent.click(navigation.getByText("Sun"));
     fireEvent.click(screen.getByRole("menuitem", { name: "X-ray Flux" }));
-    expect(screen.getByRole("heading", { name: "X-ray Flux" })).toBeInTheDocument();
-    expect(screen.getByText("This tab is limited to GOES X-ray flux, while flare events stay under Solar Flares.")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Sun" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Sun / X-ray Flux" })).toBeInTheDocument();
+    expect(screen.getByText("This section is part of Sun and focuses on X-ray flux.")).toBeInTheDocument();
   }, 20000);
 
   it("opens an interactive chart popup for solar wind details", async () => {

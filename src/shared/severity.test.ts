@@ -38,6 +38,18 @@ describe("space weather severity rules", () => {
     });
   });
 
+  it("describes quiet Kp as quiet geomagnetic conditions", () => {
+    expect(
+      classifyOverallCondition({
+        kp: 2.2,
+        scales: { g: "G0", r: "R0", s: "S0" }
+      })
+    ).toMatchObject({
+      condition: "Quiet",
+      mainCause: "Kp 2.2 indicates quiet geomagnetic conditions"
+    });
+  });
+
   it("maps flare classes to radio blackout scale estimates", () => {
     expect(flareClassToRadioScale("C8.1")).toBe("R0");
     expect(flareClassToRadioScale("M1.2")).toBe("R1");

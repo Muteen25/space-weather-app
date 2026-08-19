@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode, type WheelEvent } from "react";
 import "antd/dist/reset.css";
 import {
   Alert as AntAlert,
@@ -15,6 +15,8 @@ import {
   theme as antTheme
 } from "antd";
 import {
+  Area,
+  AreaChart as RechartsAreaChart,
   Bar,
   BarChart as RechartsBarChart,
   CartesianGrid,
@@ -32,10 +34,11 @@ import {
   AlertTriangle,
   ArrowRight,
   BarChart3,
-  ChevronDown,
   Compass,
   Clock,
   DatabaseZap,
+  Eye,
+  EyeOff,
   ExternalLink,
   Gauge,
   Globe2,
@@ -59,6 +62,7 @@ import {
 
 import { getApiUrl } from "./apiConfig";
 import { InteractiveStarField } from "./components/InteractiveStarField";
+import { XRAY_ZOOM_POINT_COUNTS } from "./xrayZoom";
 import "./styles.css";
 
 const { Header, Content, Sider } = Layout;
@@ -242,6 +246,24 @@ type SolarActivityResponse = {
     freshness: Freshness;
     data: unknown[];
   };
+  solarCycle?: {
+    source: string;
+    lastUpdated: string | null;
+    freshness: Freshness;
+    observed: Array<{
+      month: string;
+      ssn: number | null;
+      smoothedSsn: number | null;
+    }>;
+    predicted: Array<{
+      month: string;
+      predictedSsn: number | null;
+      lowSsn: number | null;
+      highSsn: number | null;
+      low75Ssn: number | null;
+      high75Ssn: number | null;
+    }>;
+  };
   images: {
     source: string;
     freshness: Freshness;
@@ -346,14 +368,19 @@ const HEADER_AFFILIATIONS = [
   "GNSS Research Lab",
   "IST Islamabad, PK"
 ];
-const BRAND_LOGO_SRC = "/assets/ncgsa-space-weather-logo.png";
+const BRAND_LOGO_DARK_SRC = "/assets/ncgsa-space-weather-icon.png";
+const BRAND_LOGO_LIGHT_SRC = "/assets/ncgsa-space-weather-icon-light.png";
+
+function getBrandLogoSrc(themeMode: "dark" | "light") {
+  return themeMode === "light" ? BRAND_LOGO_LIGHT_SRC : BRAND_LOGO_DARK_SRC;
+}
 
 const FOOTER_LOGOS = [
-  { name: "Ministry of Planning, Development and Special Initiatives", src: "/assets/footer-planning-ministry.png", href: "https://www.pc.gov.pk/" },
-  { name: "Higher Education Commission", src: "/assets/footer-hec.png", href: "https://www.hec.gov.pk/english/Pages/default.aspx" },
-  { name: "National Center of GIS and Space Applications", src: "/assets/footer-ncgsa.png", href: "https://ncgsa.org.pk/" },
+  { name: "Global Navigation Satellite System Lab", src: "/assets/footer-gnss.png", href: "https://gnss.ncgsa.org.pk/wp/" },
   { name: "Institute of Space Technology", src: "/assets/footer-ist.png", href: "https://www.ist.edu.pk/" },
-  { name: "Global Navigation Satellite System Lab", src: "/assets/footer-gnss.png", href: "https://gnss.ncgsa.org.pk/wp/" }
+  { name: "National Center of GIS and Space Applications", src: "/assets/footer-ncgsa.png", href: "https://ncgsa.org.pk/" },
+  { name: "Ministry of Planning, Development and Special Initiatives", src: "/assets/footer-planning-ministry.png", href: "https://www.pc.gov.pk/" },
+  { name: "Higher Education Commission", src: "/assets/footer-hec.png", href: "https://www.hec.gov.pk/english/Pages/default.aspx" }
 ];
 
 const FOOTER_LINKS = {
@@ -373,7 +400,7 @@ const HERO_IMAGES = [
 const LANDING_LAYER_CARDS = [
   {
     title: "Sun",
-    description: "GOES X-ray flux, solar flares, sunspots, CME watch, and solar imagery describe current solar activity.",
+    description: "X-ray flux, solar flares, sunspots, CME watch, and solar imagery describe current solar activity.",
     href: "#overview",
     image: "/landing/solar-flares.svg",
     imageAlt: "Solar activity illustration"
@@ -387,7 +414,7 @@ const LANDING_LAYER_CARDS = [
   },
   {
     title: "Geomagnetic Field",
-    description: "Kp index, NOAA G-scale status, and storm context summarize Earth’s magnetic response.",
+    description: "Kp index, G-scale status, and storm context summarize Earth’s magnetic response.",
     href: "#geomagnetic",
     image: "/landing/hero-magnetosphere.svg",
     imageAlt: "Geomagnetic field illustration"
@@ -433,7 +460,6 @@ const LANDING_CARDS = [
     imageAlt: "Solar wind stream illustration",
     links: [
       { label: "Solar Wind Plasma", section: "overview-1-plasma" },
-      { label: "Solar Wind Trends", section: "overview-1-wind-trends" },
       { label: "IMF Bz + Bt", section: "overview-1-imf" }
     ]
   },
@@ -470,6 +496,27 @@ const LAYER_MENU_KEYS = [
   "layer-ionosphere",
   "layer-system"
 ];
+
+const SUBSECTION_PARENT: Record<string, string> = {
+  "overview-1-xray": "layer-sun",
+  "overview-1-flares": "layer-sun",
+  "overview-1-sunspots": "layer-sun",
+  "overview-1-cme": "layer-sun",
+  "overview-1-imagery": "layer-sun",
+  "overview-1-plasma": "layer-solar-wind",
+  "overview-1-imf": "layer-solar-wind",
+  "overview-1-kp": "layer-geomagnetic",
+  "overview-1-dst": "layer-geomagnetic",
+  "overview-1-tec": "layer-ionosphere",
+  "overview-1-gnss": "layer-ionosphere",
+  "overview-1-contributors": "layer-system",
+  "overview-1-reference": "layer-system",
+  "overview-1-status": "layer-system",
+  "overview-1-api": "layer-system",
+  "overview-1-data": "layer-system",
+  "overview-1-sources": "layer-system",
+  "overview-1-about": "layer-system"
+};
 
 type GlossaryCategory =
   | "All"
@@ -514,7 +561,7 @@ const GLOSSARY_ENTRIES: GlossaryEntry[] = [
     term: "X-ray Flux",
     category: "Sun",
     layer: "Sun / X-ray Flux",
-    definition: "GOES soft X-ray irradiance from the Sun, commonly used to classify solar flares into A, B, C, M, and X classes.",
+    definition: "Soft X-ray irradiance from the Sun, commonly used to classify solar flares into A, B, C, M, and X classes.",
     impact: "Strong X-ray bursts can ionize the daylight ionosphere and cause sudden HF radio blackouts.",
     source: "Provided glossary; NOAA SWPC GOES X-ray product",
     related: ["GOES", "Solar Flare", "R scale"]
@@ -695,7 +742,7 @@ const GLOSSARY_ENTRIES: GlossaryEntry[] = [
     category: "Data & Sources",
     layer: "System / Sources",
     definition: "NOAA's Space Weather Prediction Center, an operational source for space-weather data, alerts, and scales.",
-    impact: "SWPC feeds support current Kp, solar wind, GOES X-ray, alerts, and G/R/S scale interpretation.",
+    impact: "Live feeds support current Kp, solar wind, X-ray flux, alerts, and G/R/S scale interpretation.",
     source: "Provided glossary; NOAA SWPC",
     related: ["GOES", "Kp", "Alerts"]
   },
@@ -746,6 +793,15 @@ const ROUTE_PATHS: Record<SiteRoute, string> = {
   sources: "/glossary"
 };
 
+function getInitialObservatorySection() {
+  if (window.location.pathname !== "/observatory") return "overview";
+  return new URLSearchParams(window.location.search).get("section") || "overview";
+}
+
+function observatoryHref(section = "overview") {
+  return section === "overview" ? "/observatory" : `/observatory?section=${encodeURIComponent(section)}`;
+}
+
 const LANDING_NAV_ITEMS: Array<{
   label: string;
   section: string;
@@ -768,7 +824,6 @@ const LANDING_NAV_ITEMS: Array<{
     section: "layer-solar-wind",
     children: [
       { label: "Solar Wind Plasma", section: "overview-1-plasma" },
-      { label: "Solar Wind Trends", section: "overview-1-wind-trends" },
       { label: "IMF Bz + Bt", section: "overview-1-imf" }
     ]
   },
@@ -793,7 +848,7 @@ const LANDING_NAV_ITEMS: Array<{
     section: "overview-1-contributors",
     children: [
       { label: "Contributors", section: "overview-1-contributors" },
-      { label: "References", section: "overview-1-reference" },
+      { label: "Scale Page", section: "overview-1-reference" },
       { label: "Observatory Status", section: "overview-1-status" },
       { label: "API Status", section: "overview-1-api" },
       { label: "Sources & Attribution", section: "overview-1-sources" },
@@ -815,21 +870,21 @@ const LEARNING_TOPICS: LearningTopic[] = [
     visualNote: "Use AIA and HMI imagery to compare active regions, flare loops, coronal holes, and the visible photosphere.",
     concepts: [
       {
-        title: "GOES X-ray flux",
-        body: "GOES X-ray flux tracks soft X-ray emission from the Sun. In the dashboard it becomes the current flare class and the X-ray trend plot.",
-        source: "NOAA SWPC GOES X-ray Flux",
+        title: "X-ray flux",
+        body: "X-ray flux tracks soft X-ray emission from the Sun. GOES is the observing satellite system behind this channel, and the dashboard turns it into the current flare class and trend plot.",
+        source: "Reference",
         href: "https://www.spaceweather.gov/products/goes-x-ray-flux"
       },
       {
         title: "Solar flares",
         body: "Flares are rapid releases of electromagnetic energy. Strong flares can disturb the sunlit ionosphere and drive radio blackout conditions.",
-        source: "NOAA SWPC Solar Flares",
+        source: "Reference",
         href: "https://www.spaceweather.gov/phenomena/solar-flares-radio-blackouts"
       },
       {
         title: "CMEs",
         body: "Coronal mass ejections are large expulsions of plasma and magnetic field. Earth-directed CMEs are important because they can drive geomagnetic storms.",
-        source: "NOAA SWPC CMEs",
+        source: "Reference",
         href: "https://www.spaceweather.gov/phenomena/coronal-mass-ejections"
       }
     ]
@@ -841,25 +896,25 @@ const LEARNING_TOPICS: LearningTopic[] = [
     summary: "Solar wind speed, density, temperature, and IMF Bz/Bt describe the material and magnetic field arriving near Earth.",
     image: "/landing/solar-wind.svg",
     imageAlt: "Solar wind and interplanetary magnetic field illustration",
-    dashboardLinks: ["Solar Wind Plasma", "Solar Wind Trends", "IMF Bz + Bt"],
+    dashboardLinks: ["Solar Wind Plasma", "IMF Bz + Bt"],
     visualNote: "The dashboard separates plasma and magnetic field because speed alone does not define storm potential; magnetic orientation matters.",
     concepts: [
       {
         title: "Solar wind plasma",
         body: "Solar wind is a stream of charged particles flowing outward from the Sun. Speed, density, and temperature help describe incoming conditions.",
-        source: "NOAA SWPC Data Access",
+        source: "Reference",
         href: "https://www.spaceweather.gov/content/data-access"
       },
       {
         title: "IMF Bz",
         body: "A southward Bz component can connect more efficiently with Earth’s magnetic field, raising the chance of geomagnetic activity.",
-        source: "NOAA SWPC Geomagnetic Storms",
+        source: "Reference",
         href: "https://www.spaceweather.gov/phenomena/geomagnetic-storms"
       },
       {
         title: "IMF Bt",
         body: "Bt is total interplanetary magnetic-field strength. Higher Bt can make Bz changes more consequential for magnetospheric coupling.",
-        source: "NOAA SWPC Homepage",
+        source: "Reference",
         href: "https://www.spaceweather.gov/homepage"
       }
     ]
@@ -868,7 +923,7 @@ const LEARNING_TOPICS: LearningTopic[] = [
     key: "geomagnetic",
     title: "Geomagnetic Activity",
     eyebrow: "Earth response",
-    summary: "Geomagnetic pages explain Kp, NOAA G-scale context, storm impacts, and why magnetic disturbances matter for technology.",
+    summary: "Geomagnetic pages explain Kp, G-scale context, storm impacts, and why magnetic disturbances matter for technology.",
     image: "/landing/hero-magnetosphere.svg",
     imageAlt: "Magnetosphere and geomagnetic activity illustration",
     dashboardLinks: ["Geomagnetic Activity", "Kp Index", "Dst Index"],
@@ -877,19 +932,19 @@ const LEARNING_TOPICS: LearningTopic[] = [
       {
         title: "Kp index",
         body: "Kp summarizes global geomagnetic activity. The dashboard uses it for the current condition, Kp trend, and G-scale interpretation.",
-        source: "NOAA SWPC Geomagnetic Storms",
+        source: "Reference",
         href: "https://www.spaceweather.gov/phenomena/geomagnetic-storms"
       },
       {
-        title: "NOAA G-scale",
+        title: "G-scale",
         body: "The G-scale communicates storm intensity and expected effects, making raw geomagnetic measurements easier to interpret.",
-        source: "NOAA Space Weather Scales",
+        source: "Reference",
         href: "https://www.spaceweather.gov/noaa-scales-explanation"
       },
       {
         title: "System impacts",
         body: "Geomagnetic storms can affect satellite operations, power systems, navigation accuracy, and aurora visibility.",
-        source: "NOAA Space Weather Scales",
+        source: "Reference",
         href: "https://www.spaceweather.gov/noaa-scales-explanation"
       }
     ]
@@ -907,19 +962,19 @@ const LEARNING_TOPICS: LearningTopic[] = [
       {
         title: "TEC",
         body: "Total Electron Content estimates the number of free electrons along a signal path. Higher TEC can increase GNSS delay and positioning uncertainty.",
-        source: "NOAA SWPC Homepage",
+        source: "Reference",
         href: "https://www.spaceweather.gov/homepage"
       },
       {
         title: "GNSS delay",
         body: "GNSS signals pass through the ionosphere, so structure and gradients in electron content can degrade precision navigation.",
-        source: "NOAA Space Weather Scales",
+        source: "Reference",
         href: "https://www.spaceweather.gov/noaa-scales-explanation"
       },
       {
         title: "Radio connection",
         body: "Large solar X-ray flares can change the ionosphere and block HF radio on the sunlit side of Earth.",
-        source: "NOAA GOES X-ray Flux",
+        source: "Reference",
         href: "https://www.spaceweather.gov/products/goes-x-ray-flux"
       }
     ]
@@ -928,28 +983,28 @@ const LEARNING_TOPICS: LearningTopic[] = [
     key: "radio",
     title: "Radio & HF Conditions",
     eyebrow: "Communication layer",
-    summary: "Radio and HF pages connect solar flares, the ionosphere, NOAA R-scale conditions, and communication impacts.",
+    summary: "Radio and HF pages connect solar flares, the ionosphere, R-scale conditions, and communication impacts.",
     image: "/landing/radio.svg",
     imageAlt: "Radio propagation illustration",
-    dashboardLinks: ["Radio / HF Conditions", "NOAA G/R/S Scales", "Active Alerts"],
+    dashboardLinks: ["Radio / HF Conditions", "G/R/S Scales", "Active Alerts"],
     visualNote: "The R-scale is paired with explanatory text so users understand what radio blackout levels mean operationally.",
     concepts: [
       {
         title: "Radio blackouts",
         body: "Radio blackouts are associated with solar X-ray flares and can degrade HF communication on the sunlit side of Earth.",
-        source: "NOAA SWPC Solar Flares",
+        source: "Reference",
         href: "https://www.spaceweather.gov/phenomena/solar-flares-radio-blackouts"
       },
       {
         title: "R-scale",
-        body: "The NOAA R-scale describes radio blackout severity from minor to extreme, including likely communication and navigation effects.",
-        source: "NOAA Space Weather Scales",
+        body: "The R-scale describes radio blackout severity from minor to extreme, including likely communication and navigation effects.",
+        source: "Reference",
         href: "https://www.spaceweather.gov/noaa-scales-explanation"
       },
       {
         title: "Alerts and warnings",
         body: "Operational alerts summarize what is happening, where impacts may occur, and what systems are most relevant.",
-        source: "NOAA Alerts, Watches and Warnings",
+        source: "Reference",
         href: "https://www.spaceweather.gov/products/alerts-watches-and-warnings"
       }
     ]
@@ -958,7 +1013,7 @@ const LEARNING_TOPICS: LearningTopic[] = [
 
 export default function App() {
   const [route, setRoute] = useState(() => (window.location.pathname === "/observatory" ? "observatory" : "landing"));
-  const [launchSection, setLaunchSection] = useState("overview");
+  const [launchSection, setLaunchSection] = useState(getInitialObservatorySection);
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -1005,7 +1060,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const handlePopState = () => setRoute(routeFromPath(window.location.pathname));
+    const handlePopState = () => {
+      setRoute(routeFromPath(window.location.pathname));
+      setLaunchSection(getInitialObservatorySection());
+    };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
@@ -1018,7 +1076,7 @@ export default function App() {
 
   function launchObservatory(section = "overview") {
     setLaunchSection(section);
-    window.history.pushState({}, "", "/observatory");
+    window.history.pushState({}, "", observatoryHref(section));
     setRoute("observatory");
   }
 
@@ -1161,7 +1219,7 @@ function LandingPage({
     {
       label: "Active Alerts",
       value: String(summary?.activeAlerts ?? data?.alerts.alerts.filter((alert) => alert.status === "active").length ?? 0),
-      detail: summary?.source ?? "NOAA SWPC",
+      detail: "Live alert feed",
       icon: AlertTriangle,
       tone: (summary?.activeAlerts ?? 0) > 0 ? "moderate" as SeverityLevel : "low" as SeverityLevel,
       accent: "rose",
@@ -1239,7 +1297,7 @@ function LandingPage({
       badge: summary?.freshness === "fresh" ? "Fresh" : summary?.freshness === "stale" ? "Stale" : "Pending",
       detail: summary?.kp === null || summary?.kp === undefined
         ? "Waiting for live Kp conditions."
-        : `Kp ${summary.kp.toFixed(1)} indicates ${summary.condition.toLowerCase()} conditions.`,
+        : `Kp ${summary.kp.toFixed(1)} indicates ${summary.condition === "Quiet" ? "quiet geomagnetic" : summary.condition.toLowerCase()} conditions.`,
       icon: Activity,
       tone: summary?.overallSeverity ?? "low",
       section: "overview",
@@ -1251,6 +1309,15 @@ function LandingPage({
       footer: summary?.lastUpdated ? `Updated ${formatDateTime(summary.lastUpdated)} UTC` : "Update pending"
     },
     {
+      label: "IMF Bz",
+      value: solarWindBz === "Unavailable" ? "Pending" : solarWindBz,
+      badge: latestField?.bzGsmNt !== null && latestField?.bzGsmNt !== undefined && latestField.bzGsmNt < -5 ? "Moderate" : "Low",
+      detail: "Interplanetary Magnetic Field",
+      icon: Magnet,
+      tone: latestField?.bzGsmNt !== null && latestField?.bzGsmNt !== undefined && latestField.bzGsmNt < -5 ? "moderate" as SeverityLevel : "low" as SeverityLevel,
+      section: "overview-1-imf"
+    },
+    {
       label: "Kp Index",
       value: summary?.kp === null || summary?.kp === undefined ? "Pending" : `Kp ${summary.kp.toFixed(1)}`,
       badge: severityLabels[summary?.overallSeverity ?? "low"],
@@ -1260,22 +1327,13 @@ function LandingPage({
       section: "overview-1-kp"
     },
     {
-      label: "IMF Bz",
-      value: solarWindBz === "Unavailable" ? "Pending" : solarWindBz,
-      badge: latestField?.bzGsmNt !== null && latestField?.bzGsmNt !== undefined && latestField.bzGsmNt < -5 ? "Moderate" : "Low",
-      detail: "Southward values raise storm potential",
-      icon: Magnet,
-      tone: latestField?.bzGsmNt !== null && latestField?.bzGsmNt !== undefined && latestField.bzGsmNt < -5 ? "moderate" as SeverityLevel : "low" as SeverityLevel,
-      section: "overview-1-imf"
-    },
-    {
-      label: "Active Alerts",
-      value: String(summary?.activeAlerts ?? data?.alerts.alerts.filter((alert) => alert.status === "active").length ?? 0),
-      badge: (summary?.activeAlerts ?? 0) > 0 ? "Moderate" : "Low",
-      detail: summary?.source ?? "NOAA_SWPC",
-      icon: AlertTriangle,
-      tone: (summary?.activeAlerts ?? 0) > 0 ? "moderate" as SeverityLevel : "low" as SeverityLevel,
-      section: "overview-1-alerts"
+      label: "TEC Value",
+      value: meanTec === null || meanTec === undefined ? "Pending" : `${meanTec.toFixed(1)} TECU`,
+      badge: maxTec === null || maxTec === undefined ? "Pending" : "Live",
+      detail: maxTec === null || maxTec === undefined ? "Ionosphere grid pending" : `Max ${maxTec.toFixed(1)} TECU`,
+      icon: Satellite,
+      tone: "low" as SeverityLevel,
+      section: "overview-1-tec"
     }
   ];
 
@@ -1283,7 +1341,7 @@ function LandingPage({
     <main className="landing-page theme-dark">
       <header className="landing-topbar">
         <button className="landing-brand" type="button" onClick={() => onLaunch("overview")} aria-label="Open live dashboard">
-          <img src={BRAND_LOGO_SRC} alt={`${LANDING_APP_NAME} - ${HEADER_AFFILIATIONS.join(" - ")}`} />
+          <img src={BRAND_LOGO_DARK_SRC} alt={`${LANDING_APP_NAME} - ${HEADER_AFFILIATIONS.join(" - ")}`} />
         </button>
         <nav className="landing-nav" aria-label="Landing navigation">
           <a className="active" href="/">
@@ -1292,7 +1350,7 @@ function LandingPage({
           {LANDING_NAV_ITEMS.map((item) => (
             <div className={item.children?.length ? "landing-nav-item has-dropdown" : "landing-nav-item"} key={item.section}>
               <a
-                href={`/observatory?section=${item.section}`}
+                href={observatoryHref(item.section)}
                 onClick={(event) => {
                   event.preventDefault();
                   onLaunch(item.section);
@@ -1304,7 +1362,7 @@ function LandingPage({
                 <div className="landing-nav-dropdown" role="menu" aria-label={`${item.label} sub pages`}>
                   {item.children.map((child) => (
                     <a
-                      href={`/observatory?section=${child.section}`}
+                      href={observatoryHref(child.section)}
                       key={child.section}
                       role="menuitem"
                       onClick={(event) => {
@@ -1346,19 +1404,19 @@ function LandingPage({
             near-Earth environment.
           </p>
           <div className="landing-actions">
-            <a className="landing-primary-link" href="/observatory" onClick={(event) => { event.preventDefault(); onLaunch("overview"); }}>
+            <a className="landing-primary-link" href={observatoryHref("overview")} onClick={(event) => { event.preventDefault(); onLaunch("overview"); }}>
               <Gauge aria-hidden="true" size={18} />
               Live Dashboard
             </a>
           </div>
           <div className="landing-hero-summary-grid" aria-label="Live hero condition cards">
-            {heroSummaryCards.map((card) => {
+            {heroSummaryCards.map((card, index) => {
               const Icon = card.icon;
               const isConditionCard = card.type === "condition";
 
               return (
                 <button
-                  className={`landing-hero-summary-card severity-${card.tone} ${isConditionCard ? "is-condition" : ""}`}
+                  className={`landing-hero-summary-card landing-hero-summary-card-${index + 1} severity-${card.tone} ${isConditionCard ? "is-condition" : ""}`}
                   key={card.label}
                   type="button"
                   onClick={() => onLaunch(card.section)}
@@ -1430,7 +1488,7 @@ function LandingPage({
           <p>
             Monitor the Sun-Earth environment through four dedicated observation portals.
           </p>
-          <a href="/observatory" onClick={(event) => { event.preventDefault(); onLaunch("overview"); }}>
+          <a href={observatoryHref("overview")} onClick={(event) => { event.preventDefault(); onLaunch("overview"); }}>
             View All Sections
             <ExternalLink aria-hidden="true" size={15} />
           </a>
@@ -1450,7 +1508,7 @@ function LandingPage({
                 <div className="landing-subfolder-links" aria-label={`${card.title} dashboard sub folders`}>
                   {card.links.map((link) => (
                     <a
-                      href={`/observatory?section=${link.section}`}
+                      href={observatoryHref(link.section)}
                       key={link.section}
                       onClick={(event) => {
                         event.preventDefault();
@@ -1465,7 +1523,7 @@ function LandingPage({
               <a
                 className="landing-card-explore"
                 aria-label={`Explore ${card.title}`}
-                href={`/observatory?section=${card.section}`}
+                href={observatoryHref(card.section)}
                 onClick={(event) => {
                   event.preventDefault();
                   onLaunch(card.section);
@@ -1483,36 +1541,17 @@ function LandingPage({
 }
 
 function TimeDropdown({ now }: { now?: Date }) {
-  const [isOpen, setIsOpen] = useState(false);
   const currentTime = now ?? new Date();
   const utcTime = formatClockTime(currentTime, "UTC");
   const pktTime = formatClockTime(currentTime, "Asia/Karachi");
 
   return (
     <div className="time-dropdown">
-      <button
-        aria-expanded={isOpen}
-        aria-haspopup="menu"
-        className="time-dropdown-trigger"
-        type="button"
-        onClick={() => setIsOpen((open) => !open)}
-      >
+      <div className="time-dropdown-trigger" aria-label={`${utcTime} UTC and ${pktTime} PKT`}>
         <Clock aria-hidden="true" size={19} />
         <span>{utcTime} UTC</span>
-        <ChevronDown aria-hidden="true" size={15} />
-      </button>
-      {isOpen ? (
-        <div className="time-dropdown-menu" role="menu">
-          <div role="menuitem">
-            <span>UTC</span>
-            <strong>{utcTime}</strong>
-          </div>
-          <div role="menuitem">
-            <span>PKT</span>
-            <strong>{pktTime}</strong>
-          </div>
-        </div>
-      ) : null}
+        <span>{pktTime} PKT</span>
+      </div>
     </div>
   );
 }
@@ -1560,25 +1599,36 @@ function ObservatoryFooter({ onNavigate }: { onNavigate: (section: string) => vo
         <div className="footer-panel footer-identity">
           <p className="footer-eyebrow">GNSS Research Lab</p>
           <h2>NCGSA Space Weather Observatory</h2>
-          <p>National Center of GIS and Space Applications</p>
-          <p>Institute of Space Technology, Islamabad, Pakistan</p>
-        </div>
-
-        <address className="footer-contact">
-          <span>
-            <MapPin aria-hidden="true" size={18} />
-            1, Islamabad Highway, Islamabad 44000
-          </span>
           <a href={FOOTER_LINKS.gnssWebsite} target="_blank" rel="noreferrer">
-            <Globe2 aria-hidden="true" size={18} />
+            <span className="footer-social-icon">
+              <Globe2 aria-hidden="true" size={18} />
+            </span>
             GNSS Research Lab Website
           </a>
-          <div className="footer-socials" aria-label="Social links">
+          <div className="footer-socials" aria-label="GNSS social links">
             <a href={FOOTER_LINKS.gnssLinkedin} target="_blank" rel="noreferrer">
               <Linkedin aria-hidden="true" size={18} />
               LinkedIn
             </a>
           </div>
+        </div>
+
+        <address className="footer-contact">
+          <p className="footer-section-label">NCGSA</p>
+          <h2>National Center of GIS and Space Applications</h2>
+          <p>Institute of Space Technology</p>
+          <span>
+            <MapPin aria-hidden="true" size={18} />
+            1, Islamabad Highway, Islamabad 44000
+          </span>
+          <a href={FOOTER_LINKS.ncgsaLinkedin} target="_blank" rel="noreferrer">
+            <Linkedin aria-hidden="true" size={18} />
+            LinkedIn
+          </a>
+          <a href={FOOTER_LINKS.ncgsaWebsite} target="_blank" rel="noreferrer">
+            <Globe2 aria-hidden="true" size={18} />
+            Website
+          </a>
         </address>
 
         <nav className="footer-quick-links" aria-label="Footer quick links">
@@ -1627,36 +1677,31 @@ function InstitutionalFooter({ onNavigate }: { onNavigate: (section: string) => 
           <section className="footer-panel footer-identity" aria-labelledby="footer-observatory-title">
             <p className="footer-section-label">GNSS Research Lab</p>
             <h2 id="footer-observatory-title">NCGSA Space Weather Observatory</h2>
-            <p className="footer-affiliation">Real-time monitoring for the Sun-Earth environment and GNSS impacts.</p>
-            <p className="footer-description">Operational dashboard and research data hub.</p>
-            <address className="footer-contact footer-contact-inline">
-              <p className="footer-section-label">GNSS Contact</p>
-              <span className="footer-contact-row">
-                <MapPin aria-hidden="true" size={24} />
-                1, Islamabad Highway, Islamabad 44000
+            <a className="footer-contact-row" href={FOOTER_LINKS.gnssWebsite} target="_blank" rel="noreferrer">
+              <span className="footer-social-icon">
+                <Globe2 aria-hidden="true" size={20} />
               </span>
-              <div className="footer-socials" aria-label="GNSS social links">
-                <a href={FOOTER_LINKS.gnssLinkedin} target="_blank" rel="noreferrer">
-                  <span className="footer-social-icon">
-                    <Linkedin aria-hidden="true" size={20} />
-                  </span>
-                  LinkedIn
-                </a>
-                <a href={FOOTER_LINKS.gnssWebsite} target="_blank" rel="noreferrer">
-                  <span className="footer-social-icon">
-                    <Globe2 aria-hidden="true" size={20} />
-                  </span>
-                  Website
-                </a>
-              </div>
-            </address>
+              GNSS Research Lab Website
+            </a>
+            <div className="footer-socials footer-identity-socials" aria-label="GNSS social links">
+              <a href={FOOTER_LINKS.gnssLinkedin} target="_blank" rel="noreferrer">
+                <span className="footer-social-icon">
+                  <Linkedin aria-hidden="true" size={20} />
+                </span>
+                LinkedIn
+              </a>
+            </div>
           </section>
 
-          <section className="footer-panel footer-ncgsa-details" aria-labelledby="footer-ncgsa-title">
+          <address className="footer-panel footer-contact">
             <p className="footer-section-label">NCGSA</p>
-            <h3 id="footer-ncgsa-title">National Center of GIS and Space Applications</h3>
-            <p>Institute of Space Technology, Islamabad, Pakistan</p>
-            <div className="footer-socials footer-identity-socials" aria-label="NCGSA social links">
+            <h2>National Center of GIS and Space Applications</h2>
+            <p className="footer-affiliation">Institute of Space Technology</p>
+            <span className="footer-contact-row">
+              <MapPin aria-hidden="true" size={20} />
+              1, Islamabad Highway, Islamabad 44000
+            </span>
+            <div className="footer-socials" aria-label="NCGSA social links">
               <a href={FOOTER_LINKS.ncgsaLinkedin} target="_blank" rel="noreferrer">
                 <span className="footer-social-icon">
                   <Linkedin aria-hidden="true" size={20} />
@@ -1670,7 +1715,8 @@ function InstitutionalFooter({ onNavigate }: { onNavigate: (section: string) => 
                 Website
               </a>
             </div>
-          </section>
+          </address>
+
           <nav className="footer-panel footer-quick-links" aria-label="Footer quick links">
             <p className="footer-section-label">Explore</p>
             {quickLinks.map((link) => (
@@ -1683,11 +1729,7 @@ function InstitutionalFooter({ onNavigate }: { onNavigate: (section: string) => 
 
         <div className="footer-bottom">
           <span>© 2026 NCGSA Space Weather Observatory</span>
-          <span className="footer-data">
-            Data: NOAA SWPC · NASA DONKI
-            <span className="footer-live-dot" aria-hidden="true" />
-            Live data
-          </span>
+          <span className="footer-quote">"Somewhere, something incredible is waiting to be known." - Carl Sagan</span>
         </div>
       </div>
     </footer>
@@ -1725,7 +1767,7 @@ function LearningSiteShell({
     <main className="learning-site theme-dark">
       <header className="site-header">
         <a className="site-brand" href="/" onClick={(event) => { event.preventDefault(); onNavigate("home"); }}>
-          <img src={BRAND_LOGO_SRC} alt={`${LANDING_APP_NAME} - ${HEADER_AFFILIATIONS.join(" - ")}`} />
+          <img src={BRAND_LOGO_DARK_SRC} alt={`${LANDING_APP_NAME} - ${HEADER_AFFILIATIONS.join(" - ")}`} />
         </a>
         <nav className="site-nav" aria-label="Website navigation">
           {SITE_NAV.map((item) => (
@@ -1821,7 +1863,7 @@ function LearningTopicPage({ topic, onNavigate }: { topic: LearningTopic; onNavi
         <div>
           <p className="eyebrow">Next step</p>
           <h2>Move From Explanation To Live Monitoring.</h2>
-          <p>Open the dashboard and compare these concepts with current NOAA SWPC and NASA DONKI data.</p>
+          <p>Open the dashboard and compare these concepts with current live monitoring data.</p>
         </div>
         <button type="button" onClick={() => onNavigate("observatory")}>Launch Observatory</button>
       </section>
@@ -1870,7 +1912,6 @@ const DASHBOARD_HEADER_TITLES: Record<string, string> = {
   "overview-1-imagery": "Solar Imagery",
   "layer-solar-wind": "Solar Wind & IMF",
   "overview-1-plasma": "Solar Wind Plasma",
-  "overview-1-wind-trends": "Solar Wind Trends",
   "overview-1-imf": "IMF Bz + Bt",
   "layer-geomagnetic": "Geomagnetic Field",
   "overview-1-geomagnetic": "Geomagnetic Activity",
@@ -1886,7 +1927,7 @@ const DASHBOARD_HEADER_TITLES: Record<string, string> = {
   "overview-1-forecasts": "Space Weather Forecasts",
   "overview-1-events": "Event Timeline",
   "layer-reference": "References",
-  "overview-1-reference": "References",
+  "overview-1-reference": "Scale Page",
   "overview-1-glossary": "Glossary",
   "overview-1-contributors": "Contributors",
   "layer-system": "Contributors",
@@ -1926,7 +1967,9 @@ function Dashboard({
   const activeAlerts = alerts.alerts.filter((alert) => alert.status === "active");
   const latestOverviewField = magneticField.data.at(-1);
   const overviewBz = latestOverviewField?.bzGsmNt ?? summary.bz;
-  const [selectedSection, setSelectedSection] = useState(initialSection);
+  const initialParentSection = SUBSECTION_PARENT[initialSection] ?? initialSection;
+  const [selectedSection, setSelectedSection] = useState(initialParentSection);
+  const [activeSubsection, setActiveSubsection] = useState<string | null>(SUBSECTION_PARENT[initialSection] ? initialSection : null);
   const [openMenuKeys, setOpenMenuKeys] = useState(LAYER_MENU_KEYS);
   const [dashboardNow, setDashboardNow] = useState(() => new Date());
   const isDarkMode = themeMode === "dark";
@@ -1963,7 +2006,6 @@ function Dashboard({
       label: layerTitle("layer-solar-wind", "Solar Wind & IMF"),
       children: [
         { key: "overview-1-plasma", className: "mission-subitem", label: "Solar Wind Plasma" },
-        { key: "overview-1-wind-trends", className: "mission-subitem", label: "Solar Wind Trends" },
         { key: "overview-1-imf", className: "mission-subitem", label: "IMF Bz + Bt" }
       ]
     },
@@ -1991,7 +2033,7 @@ function Dashboard({
       label: layerTitle("layer-system", "Contributors"),
       children: [
         { key: "overview-1-contributors", className: "mission-subitem", label: "Contributors" },
-        { key: "overview-1-reference", className: "mission-subitem", label: "References" },
+        { key: "overview-1-reference", className: "mission-subitem", label: "Scale Page" },
         { key: "overview-1-status", className: "mission-subitem", label: "Observatory Status" },
         { key: "overview-1-api", className: "mission-subitem", label: "API Status" },
         { key: "overview-1-data", className: "mission-subitem", label: "Data Explorer" },
@@ -2007,8 +2049,20 @@ function Dashboard({
   ];
 
   useEffect(() => {
-    setSelectedSection(initialSection);
+    setSelectedSection(SUBSECTION_PARENT[initialSection] ?? initialSection);
+    setActiveSubsection(SUBSECTION_PARENT[initialSection] ? initialSection : null);
   }, [initialSection]);
+
+  useEffect(() => {
+    window.requestAnimationFrame(() => {
+      const target = activeSubsection ? document.getElementById(activeSubsection) : null;
+      if (target && typeof target.scrollIntoView === "function") {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    });
+  }, [activeSubsection, selectedSection]);
 
   useEffect(() => {
     const clock = window.setInterval(() => setDashboardNow(new Date()), 1000);
@@ -2016,10 +2070,10 @@ function Dashboard({
   }, []);
 
   function navigateToSection(section: string) {
-    setSelectedSection(section);
-    window.requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
-    });
+    const parent = SUBSECTION_PARENT[section] ?? section;
+    setSelectedSection(parent);
+    setActiveSubsection(SUBSECTION_PARENT[section] ? section : null);
+    window.history.pushState({}, "", observatoryHref(section));
   }
 
   function changeOpenMenuKeys(keys: string[]) {
@@ -2032,7 +2086,7 @@ function Dashboard({
       <Sider className="mission-sider" width={248} breakpoint="lg" collapsedWidth="0">
         <nav aria-label="Mission navigation">
           <button className="mission-brand" type="button" onClick={onGoHome} aria-label="Open landing page">
-            <img src={BRAND_LOGO_SRC} alt={`${LANDING_APP_NAME} - ${HEADER_AFFILIATIONS.join(" - ")}`} />
+            <img src={getBrandLogoSrc(themeMode)} alt={`${LANDING_APP_NAME} - ${HEADER_AFFILIATIONS.join(" - ")}`} />
           </button>
           <Menu
             className="mission-menu"
@@ -2095,29 +2149,19 @@ function Dashboard({
               solarActivity={solarActivity}
               glotec={glotec}
               sourceHealth={sourceHealth}
+              activeSubsection={activeSubsection}
               onNavigate={navigateToSection}
             />
           ) : (
             <>
               <section id="overview" className="overview-snapshot-section" aria-labelledby="overview-snapshot-title">
-                <div className={`snapshot-alert-banner ${summary.activeAlerts > 0 ? "has-alerts" : ""}`}>
-                  <ShieldCheck aria-hidden="true" size={18} />
-                  <strong>
-                    {summary.activeAlerts > 0
-                      ? `${summary.activeAlerts} active NOAA alert${summary.activeAlerts === 1 ? "" : "s"} in the current feed.`
-                      : "No active NOAA alerts in the current feed."}
-                  </strong>
-                </div>
                 <div className="snapshot-source-card">
                   <div>
-                    <p className="eyebrow">Official and derived live sources</p>
                     <h2 id="overview-snapshot-title">Current Space Weather Conditions</h2>
                   </div>
                   <div className="snapshot-source-meta">
                     <span className="observation-time">Observation Time {formatDateTime(summary.lastUpdated)} UTC</span>
-                    <span className="source-meta-copy">External values are sourced from</span>
-                    <span className="source-chip">NOAA SWPC</span>
-                    <span className="source-chip">NASA DONKI</span>
+                    <span className="source-meta-copy">Live operational feeds connected</span>
                   </div>
                 </div>
                 <div className="summary-grid overview-summary-grid" aria-label="Current overview cards">
@@ -2142,7 +2186,7 @@ function Dashboard({
                     icon={AlertTriangle}
                     title="Active alerts"
                     value={String(summary.activeAlerts)}
-                    detail="NOAA_SWPC"
+                    detail="Live alert feed"
                     severity={summary.activeAlerts > 0 ? "moderate" : "low"}
                     onOpen={() => navigateToSection("overview-1-alerts")}
                   />
@@ -2158,7 +2202,6 @@ function Dashboard({
               </section>
             </>
           )}
-          <InstitutionalFooter onNavigate={navigateToSection} />
         </Content>
       </Layout>
     </Layout>
@@ -2194,17 +2237,16 @@ function OverviewOnePortal({
   const sourceStatus = sourceHealth.sources.filter((source) => source.status === "healthy").length;
   const gnssImpact = impacts.find((impact) => impact.sector === "GNSS and navigation");
   const sunCards = [
-    ["overview-1-xray", "X-ray Flux", solarActivity.xray.currentClass ?? "Flux unavailable", "GOES X-ray flux and current flare class."],
-    ["overview-1-flares", "Solar Flares", summary.latestFlare ?? "No major flare", "Recent flare state and DONKI-linked flare events."],
+    ["overview-1-xray", "X-ray Flux", solarActivity.xray.currentClass ?? "Flux unavailable", "X-ray flux and current flare class."],
+    ["overview-1-flares", "Solar Flares", summary.latestFlare ?? "No major flare", "Recent flare state and flare event records."],
     ["overview-1-sunspots", "Sunspots", "Active regions", "Sunspot and active-region context for flare and CME monitoring."],
-    ["overview-1-cme", "Coronal Mass Ejections", latestEvent?.type === "cme" ? latestEvent.title : "DONKI CME watch", latestEvent?.summary ?? "Recent CME events from DONKI."],
-    ["overview-1-imagery", "Solar Imagery", "NASA SDO latest", "Daily SDO imagery supports quick solar-disk inspection."]
+    ["overview-1-cme", "Coronal Mass Ejections", latestEvent?.type === "cme" ? latestEvent.title : "CME watch", latestEvent?.summary ?? "Recent CME event records."],
+    ["overview-1-imagery", "Solar Imagery", "Latest image", "Daily solar imagery supports quick solar-disk inspection."]
   ];
 
   return (
     <section id="overview-1" className="overview-one" aria-labelledby="overview-one-title">
       <div className="overview-one-hero">
-        <p className="eyebrow">Notebook-style observatory portal</p>
         <h2 id="overview-one-title">Overview 1</h2>
         <p>
           Experimental grouped view for scanning Sun, solar wind, geomagnetic, ionosphere, and system information from one page.
@@ -2227,12 +2269,6 @@ function OverviewOnePortal({
               title="Solar Wind Plasma"
               value={formatOptional(latestWind?.speedKmPerSec, "km/s")}
               detail={`${formatOptional(latestWind?.densityPerCc, "/cc", 1)} density, ${formatOptional(latestWind?.temperatureK, "K")} temperature`}
-            />
-            <OverviewOneMiniCard
-              id="overview-1-wind-trends"
-              title="Solar Wind Trends"
-              value={solarWind.freshness}
-              detail={`Range ${solarWind.range}, ${solarWind.data.length} plasma samples`}
             />
             <OverviewOneMiniCard
               id="overview-1-imf"
@@ -2259,9 +2295,9 @@ function OverviewOnePortal({
           <div className="overview-one-card-grid">
             <OverviewOneMiniCard
               id="overview-1-reference"
-              title="References"
+              title="Scale Page"
               value={`${scales.current.gScale} / ${scales.current.rScale} / ${scales.current.sScale}`}
-              detail="NOAA G/R/S scale definitions and current status labels."
+              detail="G/R/S scale definitions and current status labels."
             />
             <OverviewOneMiniCard
               id="overview-1-contributors"
@@ -2272,7 +2308,7 @@ function OverviewOnePortal({
             <OverviewOneMiniCard title="Observatory Status" value={summary.freshness} detail={`Updated ${formatDateTime(summary.lastUpdated)} UTC`} />
             <OverviewOneMiniCard id="overview-1-api" title="API Status" value={`${sourceStatus}/${sourceHealth.sources.length} healthy`} detail="Live adapters and proxy health." />
             <OverviewOneMiniCard id="overview-1-data" title="Data Explorer" value="Live tables" detail="Solar wind, IMF, Kp, alerts, events, and source health." />
-            <OverviewOneMiniCard id="overview-1-sources" title="Sources & Attribution" value="NOAA SWPC, NASA DONKI, NASA SDO" detail="Operational public data sources used by the portal." />
+            <OverviewOneMiniCard id="overview-1-sources" title="Sources & Attribution" value="Live feeds" detail="Operational public data streams used by the portal." />
             <OverviewOneMiniCard id="overview-1-about" title="About" value="GNSS Research Lab" detail="National Center of GIS & Space Applications, IST Islamabad." />
           </div>
         </OverviewOneBlock>
@@ -2336,13 +2372,13 @@ function buildObservatoryLayerCards({
       icon: Sun,
       image: "/landing/solar-flares.svg",
       value: xray?.currentClass ?? summary.latestFlare ?? "Quiet",
-      detail: "GOES X-ray flux, flare events, sunspot context, CME watch, and latest solar imagery.",
+      detail: "X-ray flux, flare events, sunspot context, CME watch, and latest solar imagery.",
       links: [
-        { key: "overview-1-xray", label: "X-ray Flux", value: xray?.currentClass ?? "Unavailable", detail: "GOES 1-8 A and 0.5-4 A flux channels." },
+        { key: "overview-1-xray", label: "X-ray Flux", value: xray?.currentClass ?? "Unavailable", detail: "1-8 A and 0.5-4 A flux channels." },
         { key: "overview-1-flares", label: "Solar Flares", value: summary.latestFlare ?? "No major flare", detail: `${flareEvents.length} flare event records in view.` },
         { key: "overview-1-sunspots", label: "Sunspots", value: `${regions.length} records`, detail: "Active-region and sunspot productivity context." },
-        { key: "overview-1-cme", label: "Coronal Mass Ejections", value: `${cmeEvents.length} CME records`, detail: "DONKI CME event summaries and arrival context." },
-        { key: "overview-1-imagery", label: "Solar Imagery", value: images[0]?.label ?? "NASA SDO", detail: "Latest solar disk imagery for visual inspection." }
+        { key: "overview-1-cme", label: "Coronal Mass Ejections", value: `${cmeEvents.length} CME records`, detail: "CME event summaries and arrival context." },
+        { key: "overview-1-imagery", label: "Solar Imagery", value: images[0]?.label ?? "Latest image", detail: "Latest solar disk imagery for visual inspection." }
       ]
     },
     {
@@ -2352,10 +2388,9 @@ function buildObservatoryLayerCards({
       icon: Waves,
       image: "/landing/solar-wind.svg",
       value: formatOptional(latestWind?.speedKmPerSec, "km/s"),
-      detail: "Solar wind speed, density, trends, and IMF Bz/Bt coupling for storm potential.",
+      detail: "Solar wind speed, density, temperature, and IMF Bz/Bt coupling for storm potential.",
       links: [
         { key: "overview-1-plasma", label: "Solar Wind Plasma", value: formatOptional(latestWind?.densityPerCc, "/cc", 1), detail: "Speed, density, and temperature from upstream plasma." },
-        { key: "overview-1-wind-trends", label: "Solar Wind Trends", value: `${solarWind.data.length} samples`, detail: `Selected range: ${solarWind.range}.` },
         { key: "overview-1-imf", label: "IMF Bz + Bt", value: `${formatSigned(latestField?.bzGsmNt, "nT")} / ${formatOptional(latestField?.btNt, "nT", 1)}`, detail: "Southward Bz and total field strength." }
       ]
     },
@@ -2395,11 +2430,11 @@ function buildObservatoryLayerCards({
       detail: "Contributor credits, references, source health, attribution, and mission details for the observatory.",
       links: [
         { key: "overview-1-contributors", label: "Contributors", value: "Project credits", detail: "Research, engineering, data, and QA contributor board." },
-        { key: "overview-1-reference", label: "References", value: `${scales.current.gScale} / ${scales.current.rScale} / ${scales.current.sScale}`, detail: "NOAA G/R/S definitions and current scale values." },
+        { key: "overview-1-reference", label: "Scale Page", value: `${scales.current.gScale} / ${scales.current.rScale} / ${scales.current.sScale}`, detail: "G, S, and R definitions with current scale values." },
         { key: "overview-1-status", label: "Observatory Status", value: summary.freshness, detail: `Updated ${formatDateTime(summary.lastUpdated)} UTC.` },
         { key: "overview-1-api", label: "API Status", value: `${healthySources}/${sourceHealth.sources.length} healthy`, detail: "Live adapters and proxy health." },
         { key: "overview-1-data", label: "Data Explorer", value: "Live tables", detail: "Telemetry, alerts, events, and source records." },
-        { key: "overview-1-sources", label: "Sources & Attribution", value: "NOAA + NASA", detail: "Operational public data sources used by the portal." },
+        { key: "overview-1-sources", label: "Sources & Attribution", value: "Live feeds", detail: "Operational public data streams used by the portal." },
         { key: "overview-1-about", label: "About", value: "GNSS Research Lab", detail: "National Center of GIS & Space Applications, IST Islamabad." }
       ]
     }
@@ -2472,6 +2507,7 @@ function NotebookTabPage({
   solarActivity,
   glotec,
   sourceHealth,
+  activeSubsection,
   onNavigate
 }: {
   section: string;
@@ -2486,6 +2522,7 @@ function NotebookTabPage({
   solarActivity: SolarActivityResponse;
   glotec: GloTecResponse;
   sourceHealth: SourceHealthResponse;
+  activeSubsection: string | null;
   onNavigate: (section: string) => void;
 }) {
   const latestWind = solarWind.data.at(-1);
@@ -2528,7 +2565,7 @@ function NotebookTabPage({
       eyebrow: "Sun",
       title: "X-ray Flux",
       icon: Sun,
-      summary: "GOES X-ray flux shows the current soft X-ray class and measured flux from NOAA SWPC.",
+      summary: "X-ray flux shows the current soft X-ray class and measured flux.",
       body: (
         <>
           <XrayFluxProductPanel solarActivity={solarActivity} />
@@ -2536,17 +2573,17 @@ function NotebookTabPage({
             <OverviewOneMiniCard
               title="Current X-ray class"
               value={xray.currentClass ?? "Unavailable"}
-              detail="Latest GOES 0.1-0.8 nm flare class derived from X-ray flux."
+              detail="Latest 0.1-0.8 nm flare class derived from X-ray flux."
             />
             <OverviewOneMiniCard
               title="Current X-ray flux"
               value={formatScientific(xray.currentFluxWm2, "W/m2")}
-              detail={`${xray.source}, satellite ${xray.primarySatellite ?? "unknown"}.`}
+              detail={`Satellite ${xray.primarySatellite ?? "unknown"} measurement.`}
             />
             <OverviewOneMiniCard
               title="X-ray update"
               value={xray.lastUpdated ? `${formatDateTime(xray.lastUpdated)} UTC` : "Unavailable"}
-              detail="This tab is limited to GOES X-ray flux, while flare events stay under Solar Flares."
+              detail="This tab is limited to X-ray flux, while flare events stay under Solar Flares."
             />
           </div>
         </>
@@ -2556,13 +2593,13 @@ function NotebookTabPage({
       eyebrow: "Sun",
       title: "Solar Flares",
       icon: Zap,
-      summary: "Recent flare context from the live summary and NASA DONKI event feed.",
+      summary: "Recent flare context from the live summary and event feed.",
       body: (
         <>
-          <OverviewOneMiniCard title="Latest flare" value={summary.latestFlare ?? "No major flare"} detail="Displayed with current NOAA R-scale awareness." />
-          <OverviewOneMiniCard title="Current X-ray class" value={xray.currentClass ?? "Unavailable"} detail="Flare class context from GOES X-ray flux." />
+          <OverviewOneMiniCard title="Latest flare" value={summary.latestFlare ?? "No major flare"} detail="Displayed with current R-scale awareness." />
+          <OverviewOneMiniCard title="Current X-ray class" value={xray.currentClass ?? "Unavailable"} detail="Flare class context from X-ray flux." />
           <EventSummaryList
-            emptyText="No DONKI flare events are active in this window."
+            emptyText="No flare events are active in this window."
             events={events.events.filter((event) => event.type === "flare")}
             title="Flare events"
           />
@@ -2574,40 +2611,27 @@ function NotebookTabPage({
       title: "Sunspots",
       icon: Sun,
       summary: "Active-region context for flare productivity and Earth-facing solar activity.",
-      body: (
-        <div className="overview-one-card-grid three">
-          <OverviewOneMiniCard title="Active regions" value="NOAA source tracked" detail="Sunspot groups are represented as active solar-region context in the source layer." />
-          <OverviewOneMiniCard title="Region records" value={`${solarActivity.regions.data.length}`} detail="NOAA solar-region records available in the current source payload." />
-          <OverviewOneMiniCard title="Imagery support" value="NASA SDO" detail="Solar imagery helps visually inspect active regions and coronal structures." />
-        </div>
-      )
+      body: <SunspotCyclePanel solarActivity={solarActivity} />
     },
     "overview-1-cme": {
       eyebrow: "Sun",
       title: "Coronal Mass Ejections",
       icon: Compass,
-      summary: "DONKI CME entries and linked events describe ejecta speed, direction, and arrival context.",
+      summary: "CME entries and linked events describe ejecta speed, direction, and arrival context.",
       body: <EventTimelinePanel events={events} initialFilter="cme" title="CME event timeline" />
     },
     "overview-1-imagery": {
       eyebrow: "Sun",
       title: "Solar Imagery",
       icon: Satellite,
-      summary: "Latest available NASA SDO imagery supports quick solar disk inspection.",
+      summary: "Latest available solar imagery supports quick solar disk inspection.",
       body: <SolarImageryGallery solarActivity={solarActivity} />
     },
     "overview-1-plasma": {
       eyebrow: "Solar wind & field",
       title: "Solar Wind Plasma",
       icon: Waves,
-      summary: "Plasma speed, density, and temperature from upstream NOAA SWPC measurements.",
-      body: <SolarWindPanel summary={summary} solarWind={solarWind} />
-    },
-    "overview-1-wind-trends": {
-      eyebrow: "Solar wind & field",
-      title: "Solar Wind Trends",
-      icon: BarChart3,
-      summary: "Trend view for the selected time range with recent telemetry rows.",
+      summary: "Plasma speed, density, and temperature from upstream measurements.",
       body: <SolarWindPanel summary={summary} solarWind={solarWind} />
     },
     "overview-1-imf": {
@@ -2682,19 +2706,19 @@ function NotebookTabPage({
       eyebrow: "Alerts",
       title: "Space Weather Forecasts",
       icon: Clock,
-      summary: "Forecast context using the current NOAA G, R, and S scales.",
+      summary: "Forecast context using the current G, R, and S scales.",
       body: <ScalesPanel scales={scales} />
     },
     "overview-1-events": {
       eyebrow: "Alerts",
       title: "Event Timeline",
       icon: ListFilter,
-      summary: "NASA DONKI event timeline for CME, flare, storm, and SEP context.",
+      summary: "Event timeline for CME, flare, storm, and SEP context.",
       body: <EventTimelinePanel events={events} />
     },
     "overview-1-reference": {
       eyebrow: "Reference",
-      title: "NOAA G/R/S Scales",
+      title: "Space Weather Scales",
       icon: Gauge,
       summary: "Reference scale cards for geomagnetic, radio blackout, and radiation storm categories.",
       body: <ScalesPanel scales={scales} />
@@ -2752,7 +2776,7 @@ function NotebookTabPage({
       eyebrow: "System",
       title: "Sources & Attribution",
       icon: DatabaseZap,
-      summary: "NOAA SWPC, NASA DONKI, and NASA SDO source attribution.",
+      summary: "Operational live feed attribution.",
       body: <SourceHealthPanel sourceHealth={sourceHealth} />
     },
     "overview-1-about": {
@@ -2793,6 +2817,7 @@ function NotebookTabPage({
             solarActivity={solarActivity}
             glotec={glotec}
             sourceHealth={sourceHealth}
+            activeSubsection={activeSubsection}
           />
         )
       }
@@ -2802,7 +2827,6 @@ function NotebookTabPage({
   return (
     <section className="focused-page notebook-tab-page" aria-labelledby="notebook-tab-title">
       <div className="overview-one-hero notebook-tab-hero">
-        <p className="eyebrow">{page.eyebrow}</p>
         <h2 id="notebook-tab-title">
           <Icon aria-hidden="true" size={28} /> {page.title}
         </h2>
@@ -2829,7 +2853,8 @@ function LayerDetailPage({
   events,
   solarActivity,
   glotec,
-  sourceHealth
+  sourceHealth,
+  activeSubsection
 }: {
   card: ObservatoryLayerCard;
   section: string;
@@ -2845,40 +2870,50 @@ function LayerDetailPage({
   solarActivity: SolarActivityResponse;
   glotec: GloTecResponse;
   sourceHealth: SourceHealthResponse;
+  activeSubsection: string | null;
 }) {
   const gnssImpact = impacts.find((impact) => impact.sector === "GNSS and navigation");
   const radioImpact = impacts.find((impact) => impact.sector === "HF radio communication");
+  const layerSection = (id: string, title: string, body: ReactNode) => (
+    <section id={id} className={`layer-detail-section ${activeSubsection === id ? "is-active" : ""}`} aria-labelledby={`${id}-title`}>
+      <div className="layer-detail-section-heading">
+        <h3 id={`${id}-title`}>{title}</h3>
+      </div>
+      {body}
+    </section>
+  );
 
   const layerBody: Record<string, ReactNode> = {
     "layer-sun": (
       <>
-        <XrayFluxProductPanel solarActivity={solarActivity} />
-        <div className="overview-one-card-grid three">
-          <OverviewOneMiniCard title="Current X-ray class" value={solarActivity.xray.currentClass ?? "Unavailable"} detail="Latest GOES flare class derived from soft X-ray flux." />
-          <OverviewOneMiniCard title="Region records" value={`${solarActivity.regions.data.length}`} detail="Active-region and sunspot productivity context." />
-          <OverviewOneMiniCard title="Imagery support" value={solarActivity.images.images[0]?.label ?? "NASA SDO"} detail="Solar imagery helps visually inspect active regions and coronal structures." />
-        </div>
-        <EventTimelinePanel events={events} />
-        <SolarImageryGallery solarActivity={solarActivity} />
+        {layerSection("overview-1-xray", "X-ray Flux", <XrayFluxProductPanel solarActivity={solarActivity} />)}
+        {layerSection("overview-1-flares", "Solar Flares", (
+          <>
+            <OverviewOneMiniCard title="Latest flare" value={summary.latestFlare ?? "No major flare"} detail="Displayed with current R-scale awareness." />
+            <EventSummaryList emptyText="No flare events are active in this window." events={events.events.filter((event) => event.type === "flare")} title="Flare events" />
+          </>
+        ))}
+        {layerSection("overview-1-sunspots", "Sunspots", <SunspotCyclePanel solarActivity={solarActivity} />)}
+        {layerSection("overview-1-cme", "Coronal Mass Ejections", <EventTimelinePanel events={events} initialFilter="cme" title="CME event timeline" />)}
+        {layerSection("overview-1-imagery", "Solar Imagery", <SolarImageryGallery solarActivity={solarActivity} />)}
       </>
     ),
     "layer-solar-wind": (
       <>
-        <SolarWindPanel summary={summary} solarWind={solarWind} />
-        <MagneticFieldPanel magneticField={magneticField} />
+        {layerSection("overview-1-plasma", "Solar Wind Plasma", <SolarWindPanel summary={summary} solarWind={solarWind} />)}
+        {layerSection("overview-1-imf", "IMF Bz + Bt", <MagneticFieldPanel magneticField={magneticField} />)}
       </>
     ),
     "layer-geomagnetic": (
       <>
-        <ConditionPanel summary={summary} />
-        <KpPanel kp={kp} />
-        <OverviewOneMiniCard title="Dst status" value="Connected in data layer" detail="Reserved for live Dst readings when the source is available." />
+        {layerSection("overview-1-kp", "Kp Index", <KpPanel kp={kp} />)}
+        {layerSection("overview-1-dst", "Dst Index", <OverviewOneMiniCard title="Dst status" value="Connected in data layer" detail="Reserved for live Dst readings when the source is available." />)}
       </>
     ),
     "layer-ionosphere": (
       <>
-        <GloTecGlobePanel glotec={glotec} />
-        <ImpactPanel impacts={gnssImpact ? [gnssImpact] : impacts.filter((impact) => impact.sector.includes("GNSS"))} />
+        {layerSection("overview-1-tec", "Ionosphere & TEC", <GloTecGlobePanel glotec={glotec} />)}
+        {layerSection("overview-1-gnss", "GNSS Impacts", <ImpactPanel impacts={gnssImpact ? [gnssImpact] : impacts.filter((impact) => impact.sector.includes("GNSS"))} />)}
       </>
     ),
     "layer-radio": (
@@ -2897,11 +2932,13 @@ function LayerDetailPage({
     "layer-reference": <ScalesPanel scales={scales} />,
     "layer-system": (
       <>
-        <ScalesPanel scales={scales} />
-        <GlossaryPanel compact />
-        <ContributorsPanel compact />
-        <SourceHealthPanel sourceHealth={sourceHealth} />
-        <OverviewOneMiniCard title="Observatory freshness" value={summary.freshness} detail={`Updated ${formatDateTime(summary.lastUpdated)} UTC`} />
+        {layerSection("overview-1-contributors", "Contributors", <ContributorsPanel compact />)}
+        {layerSection("overview-1-reference", "Scale Page", <ScalesPanel scales={scales} />)}
+        {layerSection("overview-1-status", "Observatory Status", <OverviewOneMiniCard title="Observatory freshness" value={summary.freshness} detail={`Updated ${formatDateTime(summary.lastUpdated)} UTC`} />)}
+        {layerSection("overview-1-api", "API Status", <OverviewOneMiniCard title="Healthy sources" value={`${sourceHealth.sources.filter((source) => source.status === "healthy").length}/${sourceHealth.sources.length}`} detail="Live adapters and proxy health." />)}
+        {layerSection("overview-1-data", "Data Explorer", <TelemetryTable caption="Recent solar wind readings" columns={["Time", "Speed", "Density", "Temp"]} rows={solarWind.data.slice(-6).map((point) => [formatTime(point.timestamp), formatOptional(point.speedKmPerSec, "km/s"), formatOptional(point.densityPerCc, "/cc", 1), formatOptional(point.temperatureK, "K", 0)])} />)}
+        {layerSection("overview-1-sources", "Sources & Attribution", <SourceHealthPanel sourceHealth={sourceHealth} />)}
+        {layerSection("overview-1-about", "About", <OverviewOneMiniCard title="GNSS Research Lab" value="Space Weather Observatory" detail="Operational space weather and GNSS awareness dashboard." />)}
       </>
     )
   };
@@ -2938,14 +2975,13 @@ function OverviewVisualPanels({
     : solarActivity.lastUpdated
       ? `${formatDateTime(solarActivity.lastUpdated)} UTC`
       : "Observation time unavailable";
-  const imageSource = solarActivity.images.source || "NASA SDO";
+  const imageSource = "Live imagery";
 
   return (
     <div className="overview-visual-grid" aria-label="Main dashboard overview visuals">
       <section className="panel overview-visual-panel overview-visual-panel-wide" aria-labelledby="overview-combined-wind-title">
         <div className="overview-visual-heading">
           <div>
-            <p className="eyebrow">NOAA Solar Wind Style</p>
             <h3 id="overview-combined-wind-title">Solar Wind All-in-One Monitor</h3>
             <p>
               IMF Bz/Bt, density, speed, and temperature aligned on one time view for fast comparison.
@@ -2960,7 +2996,7 @@ function OverviewVisualPanels({
         <div className="overview-visual-heading">
           <div>
             <p className="eyebrow">Solar activity</p>
-            <h3 id="overview-xray-title">GOES X-ray flux</h3>
+            <h3 id="overview-xray-title">X-ray flux</h3>
             <p>{xray.currentClass ?? summary.latestFlare ?? "Quiet"} · {formatScientific(xray.currentFluxWm2, "W/m2")}</p>
           </div>
           <Button type="default" onClick={() => onNavigate("overview-1-xray")}>Open X-ray Flux</Button>
@@ -2985,7 +3021,7 @@ function OverviewVisualPanels({
           <div>
             <p className="eyebrow">Solar imagery</p>
             <h3 id="overview-solar-image-title">{latestImage?.label ?? "Latest solar image"}</h3>
-            <p>{latestImage?.wavelength ?? "NASA SDO"} visual context for active regions.</p>
+            <p>{latestImage?.wavelength ?? "Solar imagery"} visual context for active regions.</p>
           </div>
           <Button type="default" onClick={() => onNavigate("overview-1-imagery")}>Open Images</Button>
         </div>
@@ -2994,7 +3030,7 @@ function OverviewVisualPanels({
           <figcaption>
             <span className="solar-caption-title">
               <strong>{latestImage?.label ?? "Solar map"}</strong>
-              <span>{latestImage?.wavelength ?? "NASA SDO"} visual context for active regions.</span>
+              <span>{latestImage?.wavelength ?? "Solar imagery"} visual context for active regions.</span>
             </span>
             <span className="solar-caption-meta">
               <span>
@@ -3409,7 +3445,7 @@ function GloTecGlobePanel({ glotec }: { glotec: GloTecResponse }) {
     <section className="panel glotec-panel" aria-labelledby="glotec-title">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">NOAA GloTEC Live Globe</p>
+          <p className="eyebrow">Live TEC Globe</p>
           <h2 id="glotec-title">TEC On Globe</h2>
         </div>
         <FreshnessBadge freshness={glotec.freshness} />
@@ -3513,13 +3549,13 @@ function SolarImageryGallery({ solarActivity }: { solarActivity: SolarActivityRe
     : solarActivity.lastUpdated
       ? `${formatDateTime(solarActivity.lastUpdated)} UTC`
       : "Latest available";
-  const featuredSource = solarActivity.images.source || "NASA_SDO";
+  const featuredSource = "Live imagery";
   const imageryCards = [
     {
       title: "HMI Intensity",
       subtitle: "Photosphere continuum",
       imageUrl: "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_HMIIC.jpg",
-      sourceLabel: "NASA SDO / HMI",
+    sourceLabel: "HMI",
       referenceUrl: "https://sdo.gsfc.nasa.gov/data/",
       detail: "Visible-light disk view for sunspot structure and photospheric context."
     },
@@ -3527,7 +3563,7 @@ function SolarImageryGallery({ solarActivity }: { solarActivity: SolarActivityRe
       title: "HMI Magnetogram",
       subtitle: "Magnetic field",
       imageUrl: "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_HMIB.jpg",
-      sourceLabel: "NASA SDO / HMI",
+    sourceLabel: "HMI",
       referenceUrl: "https://hmi.stanford.edu/",
       detail: "Line-of-sight magnetic-field map for active-region polarity."
     },
@@ -3535,7 +3571,7 @@ function SolarImageryGallery({ solarActivity }: { solarActivity: SolarActivityRe
       title: "Coronal Holes",
       subtitle: "AIA 211",
       imageUrl: "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0211.jpg",
-      sourceLabel: "NASA SDO / AIA",
+    sourceLabel: "AIA",
       referenceUrl: "https://sdo.gsfc.nasa.gov/data/",
       detail: "Dark coronal-hole regions can indicate high-speed solar-wind sources."
     },
@@ -3543,7 +3579,7 @@ function SolarImageryGallery({ solarActivity }: { solarActivity: SolarActivityRe
       title: "AIA 131",
       subtitle: "Hot flare plasma",
       imageUrl: "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0131.jpg",
-      sourceLabel: "NASA SDO / AIA",
+    sourceLabel: "AIA",
       referenceUrl: "https://svs.gsfc.nasa.gov/3979/",
       detail: "Extreme ultraviolet channel useful for flare-temperature structures."
     },
@@ -3551,7 +3587,7 @@ function SolarImageryGallery({ solarActivity }: { solarActivity: SolarActivityRe
       title: "AIA 304",
       subtitle: "Chromosphere",
       imageUrl: "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0304.jpg",
-      sourceLabel: "NASA SDO / AIA",
+    sourceLabel: "AIA",
       referenceUrl: "https://www.spaceweather.gov/products/goes-solar-ultraviolet-imager-suvi",
       detail: "304 Angstrom view highlights prominences and lower-corona structure."
     }
@@ -3577,7 +3613,7 @@ function SolarImageryGallery({ solarActivity }: { solarActivity: SolarActivityRe
             </a>
           </div>
           <figure className="solar-imagery-feature-frame">
-            <img src={featuredImage.url} alt={`${featuredImage.label} latest solar disk from NASA SDO`} />
+            <img src={featuredImage.url} alt={`${featuredImage.label} latest solar disk`} />
             <figcaption>
               <strong>{featuredImage.label}</strong>
               <span>{featuredImage.wavelength} visual context for active regions.</span>
@@ -3602,7 +3638,7 @@ function SolarImageryGallery({ solarActivity }: { solarActivity: SolarActivityRe
           <p className="eyebrow">Current solar imagery</p>
           <h2 id="solar-imagery-gallery-title">Recent Sun Views</h2>
         </div>
-        <span className="source-tag">{featuredImage?.label ?? "NASA SDO"} live references</span>
+        <span className="source-tag">{featuredImage?.label ?? "Solar image"} live references</span>
       </div>
       <div className="solar-imagery-grid">
         {imageryCards.map((card) => (
@@ -3634,6 +3670,134 @@ function SolarImageryGallery({ solarActivity }: { solarActivity: SolarActivityRe
         ))}
       </div>
     </section>
+  );
+}
+
+function SunspotCyclePanel({ solarActivity }: { solarActivity: SolarActivityResponse }) {
+  const observed = solarActivity.solarCycle?.observed ?? [];
+  const predicted = solarActivity.solarCycle?.predicted ?? [];
+  const recentObserved = observed.filter((point) => Number(point.month.slice(0, 4)) >= 2015);
+  const recentPredicted = predicted.filter((point) => Number(point.month.slice(0, 4)) >= 2026);
+  const chartData = [...recentObserved.map((point) => ({
+    month: point.month,
+    observed: point.ssn,
+    smoothed: point.smoothedSsn,
+    predicted: null,
+    low: null,
+    high: null,
+    low75: null,
+    high75: null
+  })), ...recentPredicted.map((point) => ({
+    month: point.month,
+    observed: null,
+    smoothed: null,
+    predicted: point.predictedSsn,
+    low: point.lowSsn,
+    high: point.highSsn,
+    low75: point.low75Ssn,
+    high75: point.high75Ssn
+  }))].sort((left, right) => left.month.localeCompare(right.month));
+  const [zoomWindow, setZoomWindow] = useState<{ start: number; end: number } | null>(null);
+  const visibleData = zoomWindow ? chartData.slice(zoomWindow.start, zoomWindow.end + 1) : chartData;
+  const isZoomed = zoomWindow !== null;
+  const latestObserved = [...observed].reverse().find((point) => point.ssn !== null);
+  const latestSmoothed = [...observed].reverse().find((point) => point.smoothedSsn !== null);
+  const firstPrediction = predicted.find((point) => point.predictedSsn !== null);
+  const handleWheelZoom = (event: WheelEvent<HTMLDivElement>) => {
+    if (chartData.length < 4) return;
+
+    event.preventDefault();
+    const currentStart = zoomWindow?.start ?? 0;
+    const currentEnd = zoomWindow?.end ?? chartData.length - 1;
+    const currentSize = currentEnd - currentStart + 1;
+    const direction = event.deltaY > 0 ? 1 : -1;
+    const nextSize = Math.round(direction > 0 ? currentSize * 1.25 : currentSize * 0.75);
+    const clampedSize = Math.min(chartData.length, Math.max(12, nextSize));
+    const rect = event.currentTarget.getBoundingClientRect();
+    const cursorRatio = rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0.5;
+    const cursorIndex = currentStart + Math.round(Math.max(0, Math.min(1, cursorRatio)) * Math.max(0, currentSize - 1));
+    let nextStart = Math.round(cursorIndex - clampedSize * Math.max(0, Math.min(1, cursorRatio)));
+    nextStart = Math.max(0, Math.min(chartData.length - clampedSize, nextStart));
+    const nextEnd = nextStart + clampedSize - 1;
+
+    setZoomWindow(clampedSize >= chartData.length ? null : { start: nextStart, end: nextEnd });
+  };
+
+  return (
+    <section className="panel sunspot-cycle-panel" aria-labelledby="sunspot-cycle-title">
+      <div className="section-heading">
+        <div>
+          <h2 id="sunspot-cycle-title">Solar Cycle Sunspot Number Progression</h2>
+          <p>Observed monthly sunspot numbers and Solar Cycle 25 prediction ranges.</p>
+        </div>
+        <FreshnessBadge freshness={solarActivity.solarCycle?.freshness ?? "unavailable"} />
+      </div>
+      <div className="overview-one-card-grid three">
+        <OverviewOneMiniCard title="Latest monthly SSN" value={latestObserved?.ssn === null || latestObserved?.ssn === undefined ? "Unavailable" : latestObserved.ssn.toFixed(1)} detail={latestObserved ? `Observed ${formatSolarCycleMonth(latestObserved.month)}` : "Monthly sunspot data pending."} />
+        <OverviewOneMiniCard title="Smoothed SSN" value={latestSmoothed?.smoothedSsn === null || latestSmoothed?.smoothedSsn === undefined ? "Unavailable" : latestSmoothed.smoothedSsn.toFixed(1)} detail={latestSmoothed ? `Smoothed through ${formatSolarCycleMonth(latestSmoothed.month)}` : "Smoothed value pending."} />
+        <OverviewOneMiniCard title="Prediction start" value={firstPrediction?.predictedSsn === null || firstPrediction?.predictedSsn === undefined ? "Unavailable" : firstPrediction.predictedSsn.toFixed(1)} detail={firstPrediction ? `Forecast from ${formatSolarCycleMonth(firstPrediction.month)}` : "Prediction pending."} />
+      </div>
+      <div className="sunspot-chart-actions">
+        <span>{isZoomed ? `${visibleData.length} months in view` : "Scroll on chart to zoom"}</span>
+        <button type="button" onClick={() => setZoomWindow(null)} disabled={!isZoomed}>
+          Reset zoom
+        </button>
+      </div>
+      <div
+        className="sunspot-cycle-chart"
+        role="img"
+        aria-label="Solar cycle sunspot number chart with observed values and predicted range. Use mouse wheel to zoom in and out."
+        onWheel={handleWheelZoom}
+      >
+        <ResponsiveContainer width="100%" height={420}>
+          <RechartsAreaChart data={visibleData} margin={{ top: 20, right: 26, bottom: 40, left: 12 }}>
+            <CartesianGrid stroke="var(--sunspot-grid-color, rgba(148, 163, 184, 0.22))" strokeDasharray="4 4" />
+            <XAxis
+              dataKey="month"
+              minTickGap={30}
+              tick={{ fill: "currentColor", fontSize: 11 }}
+              tickFormatter={(value) => String(value).slice(0, 4)}
+              label={{ value: "Year", position: "insideBottom", offset: -22, fill: "currentColor", fontSize: 12 }}
+            />
+            <YAxis
+              width={54}
+              domain={[0, "dataMax + 20"]}
+              tick={{ fill: "currentColor", fontSize: 11 }}
+              label={{ value: "Sunspot Number", angle: -90, position: "insideLeft", fill: "currentColor", fontSize: 12 }}
+            />
+            <RechartsTooltip content={<SunspotCycleTooltip />} cursor={{ stroke: "rgba(56, 189, 248, 0.45)", strokeWidth: 1 }} />
+            <Area dataKey="high75" stackId="range75" stroke="none" fill="var(--sunspot-band-wide, rgba(236, 72, 153, 0.18))" connectNulls isAnimationActive={false} />
+            <Area dataKey="low75" stackId="range75" stroke="none" fill="var(--sunspot-band-mask, rgba(4, 8, 18, 0.9))" connectNulls isAnimationActive={false} />
+            <Area dataKey="high" stackId="range50" stroke="none" fill="var(--sunspot-band-narrow, rgba(168, 85, 247, 0.2))" connectNulls isAnimationActive={false} />
+            <Area dataKey="low" stackId="range50" stroke="none" fill="var(--sunspot-band-mask, rgba(4, 8, 18, 0.9))" connectNulls isAnimationActive={false} />
+            <Line dataKey="observed" name="Monthly SSN" stroke="var(--sunspot-observed, #334155)" strokeWidth={2} dot={{ r: 3, fill: "var(--sunspot-observed, #334155)" }} connectNulls isAnimationActive={false} />
+            <Line dataKey="smoothed" name="Smoothed SSN" stroke="var(--sunspot-smoothed, #7c3aed)" strokeWidth={3} dot={false} connectNulls isAnimationActive={false} />
+            <Line dataKey="predicted" name="Predicted SSN" stroke="var(--sunspot-predicted, #a21caf)" strokeWidth={3} dot={false} connectNulls isAnimationActive={false} />
+          </RechartsAreaChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="sunspot-cycle-legend">
+        <span><i className="dot-observed" /> Monthly SSN</span>
+        <span><i className="dot-smoothed" /> Smoothed SSN</span>
+        <span><i className="dot-predicted" /> Predicted SSN</span>
+        <span><i className="band-predicted" /> Prediction range</span>
+      </div>
+    </section>
+  );
+}
+
+function SunspotCycleTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload?: Record<string, unknown> }> }) {
+  if (!active || !payload?.[0]?.payload) return null;
+  const row = payload[0].payload;
+
+  return (
+    <div className="xray-tooltip">
+      <strong>{formatSolarCycleMonth(String(row.month ?? ""))}</strong>
+      <span>Monthly SSN: {formatChartNumber(row.observed)}</span>
+      <span>Smoothed SSN: {formatChartNumber(row.smoothed)}</span>
+      <span>Predicted SSN: {formatChartNumber(row.predicted)}</span>
+      <span>Range: {formatChartNumber(row.low)} - {formatChartNumber(row.high)}</span>
+    </div>
   );
 }
 
@@ -3698,11 +3862,9 @@ function XrayFluxProductPanel({ solarActivity }: { solarActivity: SolarActivityR
     <section className="panel xray-product-panel" aria-labelledby="xray-product-title">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">NOAA SWPC product style</p>
-          <h2 id="xray-product-title">GOES X-ray Flux Plot</h2>
+          <h2 id="xray-product-title">X-ray Flux Plot</h2>
         </div>
         <div className="source-stack">
-          <span className="source-tag">{xray.source}</span>
           <FreshnessBadge freshness={xray.freshness} />
         </div>
       </div>
@@ -3715,23 +3877,9 @@ function XrayFluxProductPanel({ solarActivity }: { solarActivity: SolarActivityR
 
       <GoesXrayFluxChart oneToEight={oneToEight} halfToFour={halfToFour} primarySatellite={primarySatellite} />
 
-      <div className="xray-event-card">
-        <h3>GOES Latest X-Ray Event 1-8A</h3>
-        <TelemetryTable
-          caption="GOES latest X-ray event 1-8A"
-          columns={["Time", "Class", "Flux", "Satellite"]}
-          rows={oneToEight.slice(-6).reverse().map((point) => [
-            point.timestamp ? formatDateTime(point.timestamp) : "Unavailable",
-            point.flareClass ?? "Unavailable",
-            formatScientific(point.fluxWm2, "W/m2"),
-            primarySatellite ?? "Unknown"
-          ])}
-        />
-      </div>
-
       <p className="instrument-note">
-        SWPC uses GOES X-ray plots to track solar activity and solar flares. The chart separates the 1-8 A and
-        0.5-4 A passbands, following the NOAA product layout.
+        GOES is the observing satellite system behind this X-ray channel. The chart separates the
+        1-8 A and 0.5-4 A passbands for solar flare monitoring.
       </p>
     </section>
   );
@@ -3748,7 +3896,7 @@ function GoesXrayFluxChart({
 }) {
   const [zoomPreset, setZoomPreset] = useState<"6h" | "1d" | "3d" | "7d">("3d");
   const [isClassGuideOpen, setIsClassGuideOpen] = useState(false);
-  const presetPointCounts = { "6h": 72, "1d": 288, "3d": 864, "7d": 2016 };
+  const presetPointCounts = XRAY_ZOOM_POINT_COUNTS;
   const maxLength = Math.max(oneToEight.length, halfToFour.length);
   const visibleLength = maxLength === 0 ? 0 : Math.min(maxLength, presetPointCounts[zoomPreset]);
   const longVisible = oneToEight.slice(-visibleLength);
@@ -3772,10 +3920,10 @@ function GoesXrayFluxChart({
   }, [longVisible, primarySatellite, shortVisible]);
 
   return (
-    <div className="xray-chart-card" role="region" aria-label="GOES X-ray flux plot for 1-8 A and 0.5-4 A channels">
+    <div className="xray-chart-card" role="region" aria-label="X-ray flux plot for 1-8 A and 0.5-4 A channels">
       <div className="xray-chart-toolbar">
         <span>Showing point {Math.max(1, maxLength - visibleLength + 1)} to {maxLength} of {maxLength}</span>
-        <div className="xray-preset-controls" aria-label="GOES X-ray zoom range">
+        <div className="xray-preset-controls" aria-label="X-ray zoom range">
           {(["6h", "1d", "3d", "7d"] as const).map((preset) => (
             <button
               type="button"
@@ -3860,7 +4008,7 @@ function GoesXrayFluxChart({
         <span><i className="legend-dot dot-orange" /> 0.1-0.8 nm</span>
         <span><i className="legend-dot dot-cyan" /> 0.05-0.4 nm</span>
         <strong>{visibleLength} visible points</strong>
-        <a href="https://services.swpc.noaa.gov/json/goes/" target="_blank" rel="noreferrer">SWPC GOES JSON</a>
+        <a href="https://services.swpc.noaa.gov/json/goes/" target="_blank" rel="noreferrer">Open data endpoint</a>
       </div>
       <XrayClassGuideDrawer open={isClassGuideOpen} onClose={() => setIsClassGuideOpen(false)} />
     </div>
@@ -3903,7 +4051,7 @@ function XrayClassGuideDrawer({ open, onClose }: { open: boolean; onClose: () =>
           <p>C3.2 means a C-class flare with a multiplier of 3.2, or about 3.2e-6 W/m2 in the GOES long channel.</p>
         </div>
         <a href="https://www.spaceweather.gov/products/goes-x-ray-flux" target="_blank" rel="noreferrer">
-          Open NOAA SWPC GOES X-ray Flux
+          Open X-ray Flux Reference
           <ExternalLink aria-hidden="true" size={15} />
         </a>
       </div>
@@ -3930,7 +4078,7 @@ function EventSummaryList({ title, events, emptyText }: { title: string; events:
     <section className="panel timeline-panel" aria-labelledby={`${title.replaceAll(" ", "-").toLowerCase()}-title`}>
       <div className="section-heading">
         <div>
-          <p className="eyebrow">NASA DONKI</p>
+          <p className="eyebrow">Event feed</p>
           <h2 id={`${title.replaceAll(" ", "-").toLowerCase()}-title`}>{title}</h2>
         </div>
       </div>
@@ -3979,6 +4127,7 @@ function RangeSelector({ value, onChange }: { value: string; onChange: (range: s
 }
 
 function ConditionPanel({ summary, onOpen }: { summary: DashboardSummary; onOpen?: () => void }) {
+  const [isScaleViewOpen, setIsScaleViewOpen] = useState(false);
   const isUnavailable = summary.freshness === "unavailable";
   const conditionCopy = isUnavailable
     ? "Live geomagnetic inputs are unavailable. Default scale values are shown until the NOAA feed returns."
@@ -4024,8 +4173,76 @@ function ConditionPanel({ summary, onOpen }: { summary: DashboardSummary; onOpen
           <dd>{summary.sScale}</dd>
         </div>
       </dl>
+      <button
+        className="mini-read-button scale-view-all-button"
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          setIsScaleViewOpen(true);
+        }}
+      >
+        View scales
+      </button>
       <p className="timestamp">{updatedAt ? `Updated ${updatedAt} UTC` : "Update time unavailable"}</p>
+      <ScaleViewDrawer open={isScaleViewOpen} onClose={() => setIsScaleViewOpen(false)} summary={summary} />
     </article>
+  );
+}
+
+function ScaleViewDrawer({
+  open,
+  onClose,
+  summary
+}: {
+  open: boolean;
+  onClose: () => void;
+  summary: DashboardSummary;
+}) {
+  const currentValues = {
+    G: summary.gScale,
+    R: summary.rScale,
+    S: summary.sScale
+  };
+  const handleClose = (event?: { stopPropagation?: () => void }) => {
+    event?.stopPropagation?.();
+    onClose();
+  };
+
+  return (
+    <Drawer
+      className="read-drawer scale-view-drawer"
+      title="Space Weather Scales"
+      placement="right"
+      open={open}
+      onClose={handleClose}
+      width={420}
+    >
+      <div className="scale-view-stack" onClick={(event) => event.stopPropagation()}>
+        {SPACE_WEATHER_SCALE_GROUPS.map((group) => (
+          <section className="scale-view-card" key={group.code}>
+            <header>
+              <span>{group.code}</span>
+              <div>
+                <h3>{group.title}</h3>
+                <p>{group.measure}</p>
+              </div>
+              <strong>{currentValues[group.code]}</strong>
+            </header>
+            <div className="scale-view-level-list">
+              {group.levels.map((level) => (
+                <article className="scale-view-level-row" key={level.level}>
+                  <div>
+                    <strong>{level.level}</strong>
+                    <span>{level.label}</span>
+                  </div>
+                  <p>{level.trigger}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </Drawer>
   );
 }
 
@@ -4216,7 +4433,13 @@ function MagneticFieldPanel({ magneticField }: { magneticField: MagneticFieldRes
 
   return (
     <section id="magnetic-field" className="panel instrument-panel" aria-labelledby="magnetic-field-title">
-      <PanelTitle eyebrow="Interplanetary magnetic field" title="Magnetic field" source={magneticField.source} freshness={magneticField.freshness} />
+      <PanelTitle
+        eyebrow="Interplanetary magnetic field"
+        title="Magnetic field"
+        source={magneticField.source}
+        freshness={magneticField.freshness}
+        hideSourceTag
+      />
       <div className="wind-layout compact-stats">
         <InstrumentStat label="Bz GSM" value={formatSigned(latest?.bzGsmNt, "nT")} icon={Magnet} />
         <InstrumentStat label="Bt" value={formatOptional(latest?.btNt, "nT", 2)} icon={Waves} />
@@ -4258,18 +4481,18 @@ function KpPanel({ kp }: { kp: KpResponse }) {
           value={kp.current === null ? "Unavailable" : kp.current.toFixed(2)}
           icon={BarChart3}
           body="Kp is the planetary geomagnetic activity index. It is plotted on a fixed 0 to 9 scale and helps identify quiet, unsettled, or storm-level magnetic conditions."
-          impact="Higher Kp values can indicate stronger geomagnetic activity, with Kp 5 and above corresponding to NOAA G-scale storm levels."
+          impact="Higher Kp values can indicate stronger geomagnetic activity, with Kp 5 and above corresponding to G-scale storm levels."
           risk="Watch for sustained Kp values at or above 5, especially when solar wind conditions and southward IMF Bz support coupling."
           references={getReadReferences("Kp index", kp.source)}
         />
         <KpSummaryCard
-          title="NOAA G scale"
+          title="G scale"
           value={kp.gScale}
           icon={Gauge}
-          body="The NOAA G scale translates geomagnetic storm strength into an operational category, from G0 quiet conditions through higher storm levels."
+          body="The G scale translates geomagnetic storm strength into an operational category, from G0 quiet conditions through higher storm levels."
           impact="The G scale helps operators quickly understand possible impacts to power systems, spacecraft operations, aurora visibility, and GNSS reliability."
           risk="G1 and higher indicate geomagnetic storm conditions. G0 means no storm category is currently indicated by the Kp value."
-          references={getReadReferences("NOAA G scale", kp.source)}
+          references={getReadReferences("G scale", kp.source)}
         />
       </div>
       <KpBars points={kp.data.slice(-16)} />
@@ -4279,23 +4502,74 @@ function KpPanel({ kp }: { kp: KpResponse }) {
 }
 
 function ScalesPanel({ scales }: { scales: ScalesResponse }) {
+  const currentValues = {
+    gScale: scales.current.gScale,
+    rScale: scales.current.rScale,
+    sScale: scales.current.sScale
+  };
+
   return (
-    <section className="panel instrument-panel" aria-labelledby="scales-title">
-      <PanelTitle eyebrow="Official current scales" title="NOAA scales" source={scales.source} freshness={scales.freshness} />
-      <div className="scale-card-grid">
-        <ScaleCard label="Geomagnetic storms" value={scales.current.gScale} />
-        <ScaleCard label="Radio blackouts" value={scales.current.rScale} />
-        <ScaleCard label="Radiation storms" value={scales.current.sScale} />
+    <section className="panel instrument-panel scale-page-panel" aria-labelledby="scales-title">
+      <div className="section-heading scale-page-heading">
+        <div>
+          <p className="eyebrow">Reference</p>
+          <h2 id="scales-title">Space Weather Scales</h2>
+          <p>
+            The scale system groups space-weather impacts into geomagnetic storms, solar radiation storms,
+            and radio blackouts. Each category runs from level 1 to level 5.
+          </p>
+        </div>
+        <a
+          className="reference-link-button"
+          href="https://www.spaceweather.gov/noaa-scales-explanation"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <ExternalLink size={16} />
+          Official Reference
+        </a>
       </div>
-      <p className="instrument-note">Scale cards separate G, R, and S categories to avoid mixing different hazards.</p>
+
+      <div className="scale-card-grid scale-current-grid">
+        <ScaleCard label="Geomagnetic storms" value={scales.current.gScale} />
+        <ScaleCard label="Radiation storms" value={scales.current.sScale} />
+        <ScaleCard label="Radio blackouts" value={scales.current.rScale} />
+      </div>
+
+      <div className="scale-definition-grid">
+        {SPACE_WEATHER_SCALE_GROUPS.map((group) => (
+          <article className="scale-definition-card" key={group.code}>
+            <header>
+              <span>{group.code}</span>
+              <div>
+                <h3>{group.title}</h3>
+                <p>{group.measure}</p>
+              </div>
+              <strong>{currentValues[group.currentKey]}</strong>
+            </header>
+            <div className="scale-level-list">
+              {group.levels.map((level) => (
+                <div className="scale-level-row" key={level.level}>
+                  <div>
+                    <strong>{level.level}</strong>
+                    <span>{level.label}</span>
+                  </div>
+                  <p>{level.trigger}</p>
+                  <small>{level.impact}</small>
+                </div>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
 
 const CONTRIBUTOR_INTERNS = [
-  { name: "Zain", role: "Research Intern" },
-  { name: "Ramsha", role: "Research Intern" },
-  { name: "Mubasir", role: "Research Intern" }
+  { name: "Zain", role: "Research Intern", photo: "/assets/contributors/intern-zain.jpeg" },
+  { name: "Ramsha", role: "Research Intern", photo: "/assets/contributors/intern-ramsha.jpeg" },
+  { name: "Mubasir", role: "Research Intern", photo: "/assets/contributors/intern-mubasir.jpeg" }
 ];
 
 const CONTRIBUTOR_TEAM = [
@@ -4321,9 +4595,57 @@ const CONTRIBUTOR_TEAM = [
 
 const CONTRIBUTOR_ADVISORS = [
   { name: "Dr. Najam Abbas", role: "Chairman, NCGSA", photo: "/assets/contributors/advisor-1.png" },
-  { name: "Usama Ahmad", role: "NCGSA Coordinator", photo: "/assets/contributors/advisor-2.jpg" }
-  // { name: "Dr. Imran", role: "Assistant Professor", photo: "/assets/contributors/advisor-3.jpg" },
-  // { name: "Dr. Munawar Shah", role: "Assistant Professor", photo: "/assets/contributors/advisor-4.png" }
+  { name: "Usama Ahmad", role: "NCGSA Coordinator", photo: "/assets/contributors/advisor-2.jpg" },
+  { name: "Dr. Imran", role: "Assistant Professor", photo: "/assets/contributors/advisor-3.jpg" },
+  { name: "Dr. Munawar Shah", role: "Assistant Professor", photo: "/assets/contributors/advisor-4.png" }
+];
+
+const SPACE_WEATHER_SCALE_GROUPS: Array<{
+  code: "G" | "R" | "S";
+  title: string;
+  measure: string;
+  currentKey: "gScale" | "rScale" | "sScale";
+  levels: Array<{ level: string; label: string; trigger: string; impact: string }>;
+}> = [
+  {
+    code: "G",
+    title: "Geomagnetic Storms",
+    measure: "Kp index",
+    currentKey: "gScale" as const,
+    levels: [
+      { level: "G1", label: "Minor", trigger: "Kp 5", impact: "Weak grid fluctuations, minor spacecraft operations impact, aurora at high latitudes." },
+      { level: "G2", label: "Moderate", trigger: "Kp 6", impact: "High-latitude voltage alarms, spacecraft orientation corrections, HF fade at high latitudes." },
+      { level: "G3", label: "Strong", trigger: "Kp 7", impact: "Voltage corrections may be needed, satellite drag can increase, navigation issues may appear." },
+      { level: "G4", label: "Severe", trigger: "Kp 8", impact: "Widespread voltage-control issues, spacecraft tracking problems, degraded navigation for hours." },
+      { level: "G5", label: "Extreme", trigger: "Kp 9", impact: "Major power-system problems, satellite navigation degraded for days, HF radio may fail in many areas." }
+    ]
+  },
+  {
+    code: "S",
+    title: "Solar Radiation Storms",
+    measure: ">= 10 MeV proton flux",
+    currentKey: "sScale" as const,
+    levels: [
+      { level: "S1", label: "Minor", trigger: "10 pfu", impact: "Minor HF radio impacts in polar regions." },
+      { level: "S2", label: "Moderate", trigger: "100 pfu", impact: "Elevated radiation risk on high-latitude flights and possible polar navigation effects." },
+      { level: "S3", label: "Strong", trigger: "1,000 pfu", impact: "Astronaut radiation avoidance recommended, satellite single-event effects likely." },
+      { level: "S4", label: "Severe", trigger: "10,000 pfu", impact: "High radiation risk, satellite memory and imaging problems, polar HF blackout likely." },
+      { level: "S5", label: "Extreme", trigger: "100,000 pfu", impact: "Extreme radiation hazard, severe satellite impacts, polar communication blackout possible." }
+    ]
+  },
+  {
+    code: "R",
+    title: "Radio Blackouts",
+    measure: "Solar X-ray flare class",
+    currentKey: "rScale" as const,
+    levels: [
+      { level: "R1", label: "Minor", trigger: "M1", impact: "Weak HF radio degradation on the sunlit side and brief navigation-signal degradation." },
+      { level: "R2", label: "Moderate", trigger: "M5", impact: "Limited HF blackout and low-frequency navigation degradation for tens of minutes." },
+      { level: "R3", label: "Strong", trigger: "X1", impact: "Wide-area HF blackout and navigation signal degradation for about an hour." },
+      { level: "R4", label: "Severe", trigger: "X10", impact: "HF blackout across most of the sunlit side for one to two hours." },
+      { level: "R5", label: "Extreme", trigger: "X20", impact: "Complete HF blackout on the sunlit side for hours, with significant navigation disruption." }
+    ]
+  }
 ];
 
 function GlossaryPanel({ compact = false }: { compact?: boolean }) {
@@ -4331,6 +4653,7 @@ function GlossaryPanel({ compact = false }: { compact?: boolean }) {
   const [category, setCategory] = useState<GlossaryCategory>("All");
   const normalizedQuery = query.trim().toLowerCase();
   const visibleEntries = GLOSSARY_ENTRIES.filter((entry) => {
+    if (entry.term.toLowerCase().includes("donki") || entry.term.toLowerCase().includes("noaa")) return false;
     const matchesCategory = category === "All" || entry.category === category;
     const searchable = [
       entry.term,
@@ -4338,7 +4661,6 @@ function GlossaryPanel({ compact = false }: { compact?: boolean }) {
       entry.layer,
       entry.definition,
       entry.impact,
-      entry.source,
       ...entry.related
     ].join(" ").toLowerCase();
     return matchesCategory && (!normalizedQuery || searchable.includes(normalizedQuery));
@@ -4403,7 +4725,7 @@ function GlossaryPanel({ compact = false }: { compact?: boolean }) {
               </div>
               <div className="glossary-meta">
                 <Info aria-hidden="true" size={14} />
-                <span>{entry.source}</span>
+                <span>Glossary note</span>
               </div>
             </article>
           ))}
@@ -4433,19 +4755,19 @@ function ContributorsPanel({ compact = false }: { compact?: boolean }) {
       <div className="contributors-layout">
         <section className="contributors-lead-section" aria-labelledby="contributors-lead-title">
           <h3 id="contributors-lead-title">Intern Team</h3>
-          <article className="contributors-intern-card">
-            <div className="contributors-intern-grid">
-              {CONTRIBUTOR_INTERNS.map((intern) => (
-                <div className="contributor-mini" key={intern.name}>
-                  <div className="contributor-photo contributor-photo-small" aria-hidden="true" />
-                  <div className="contributor-card-copy">
-                    <strong>{intern.name}</strong>
-                    <span>{intern.role}</span>
-                  </div>
+          <div className="contributors-intern-grid">
+            {CONTRIBUTOR_INTERNS.map((intern) => (
+              <article className="contributors-intern-card" key={intern.name}>
+                <div className="contributor-photo contributor-photo-small">
+                  <img src={intern.photo} alt={intern.name} loading="lazy" />
                 </div>
-              ))}
-            </div>
-          </article>
+                <div>
+                  <h4>{intern.name}</h4>
+                  <p>{intern.role}</p>
+                </div>
+              </article>
+            ))}
+          </div>
         </section>
 
         <section aria-labelledby="ncgsa-team-title">
@@ -4456,10 +4778,9 @@ function ContributorsPanel({ compact = false }: { compact?: boolean }) {
                 <div className="contributor-photo contributor-photo-medium">
                   <img src={member.photo} alt={member.name} loading="lazy" />
                 </div>
-                <div className="contributor-card-copy">
+                <div>
                   <h4>{member.name}</h4>
                   <p>{member.role}</p>
-                  <span className="contributor-line" aria-hidden="true" />
                   <small>{member.focus}</small>
                 </div>
               </article>
@@ -4470,7 +4791,7 @@ function ContributorsPanel({ compact = false }: { compact?: boolean }) {
         <section aria-labelledby="advisors-title">
           <h3 id="advisors-title">Specialists & Advisors</h3>
           <div className="contributors-advisor-grid">
-            {CONTRIBUTOR_ADVISORS.map((advisor) => (
+            {CONTRIBUTOR_ADVISORS.slice(0, 2).map((advisor) => (
               <article className="contributors-advisor-card" key={advisor.name}>
                 <div className="contributor-photo contributor-photo-advisor">
                   <img src={advisor.photo} alt={advisor.name} loading="lazy" />
@@ -4483,21 +4804,52 @@ function ContributorsPanel({ compact = false }: { compact?: boolean }) {
             ))}
           </div>
         </section>
+
+        <section aria-labelledby="contributors-scale-title">
+          <article className="contributors-scale-card">
+            <div>
+              <p className="eyebrow">Reference</p>
+              <h3 id="contributors-scale-title">Space Weather Scales</h3>
+              <p>Open the G, S, and R scale page for storm levels, physical triggers, and expected impacts.</p>
+            </div>
+            <a className="contributors-scale-link" href={observatoryHref("overview-1-reference")}>
+              <Gauge size={16} />
+              Open Scale Page
+            </a>
+          </article>
+        </section>
       </div>
     </section>
   );
 }
 
 function SourceHealthPanel({ sourceHealth }: { sourceHealth: SourceHealthResponse }) {
+  const [showSourceNames, setShowSourceNames] = useState(true);
+
   return (
     <section className="panel instrument-panel" aria-labelledby="source-health-title">
-      <PanelTitle eyebrow="Data freshness" title="Source health" source="NOAA SWPC" freshness="fresh" />
+      <PanelTitle
+        eyebrow="Data freshness"
+        title="Source health"
+        source="Live feeds"
+        freshness="fresh"
+        action={
+          <Button
+            size="small"
+            className="read-button source-visibility-button"
+            icon={showSourceNames ? <EyeOff size={14} /> : <Eye size={14} />}
+            onClick={() => setShowSourceNames((current) => !current)}
+          >
+            {showSourceNames ? "Hide" : "Show"}
+          </Button>
+        }
+      />
       <div className="source-list">
-        {sourceHealth.sources.map((source) => (
+        {sourceHealth.sources.map((source, index) => (
           <article className="source-row" key={source.sourceName}>
             <span className={`health-dot status-${source.status}`} aria-hidden="true" />
             <div>
-              <h3>{source.sourceName.replaceAll("_", " ")}</h3>
+              <h3>{showSourceNames ? source.sourceName.replaceAll("_", " ") : `Feed ${index + 1}`}</h3>
               <p>
                 {source.status}
                 {source.lastSuccessAt ? ` · ${formatDateTime(source.lastSuccessAt)} UTC` : ""}
@@ -4515,13 +4867,15 @@ function PanelTitle({
   title,
   source,
   freshness,
-  action
+  action,
+  hideSourceTag = true
 }: {
   eyebrow: string;
   title: string;
   source: string;
   freshness: Freshness;
   action?: ReactNode;
+  hideSourceTag?: boolean;
 }) {
   const [isReadOpen, setIsReadOpen] = useState(false);
   const termInfo = getTermReadContent(title, source);
@@ -4539,7 +4893,7 @@ function PanelTitle({
           {action}
         </div>
         <div className="source-meta">
-          <span className="source-tag">{source}</span>
+          {hideSourceTag ? null : <span className="source-tag">{source}</span>}
           <FreshnessBadge freshness={freshness} />
         </div>
       </div>
@@ -4550,7 +4904,7 @@ function PanelTitle({
         eyebrow={eyebrow}
         body={termInfo?.definition ?? `${title} explains one operational part of the dashboard. Use this panel to understand what the card is showing, where the data comes from, and how it connects to space weather monitoring.`}
         bullets={[
-          `Source: ${source}`,
+          `Status: ${freshness}`,
           termInfo?.impact ?? `Freshness: ${freshness}`,
           termInfo?.risk ?? "Use the chart controls to zoom into recent samples or reset to the full range when available."
         ]}
@@ -4653,24 +5007,24 @@ function getTermReadContent(title: string, source = ""): {
 
   if (normalized.includes("x-ray") || normalized.includes("xray") || normalized.includes("current class") || normalized === "flux") {
     return {
-      definition: "GOES X-ray flux measures soft X-ray energy from the Sun. The dashboard uses the official GOES long channel, 0.1-0.8 nm, to derive flare classes such as B, C, M, and X.",
+      definition: "GOES is the observing satellite system used for these X-ray measurements. The dashboard uses the 0.1-0.8 nm long channel to derive flare classes such as B, C, M, and X.",
       impact: "Strong X-ray flares can change the sunlit ionosphere quickly, raising the chance of HF radio blackout conditions and navigation-signal disturbance.",
       risk: "C-class is usually small, M-class can be operationally important, and X-class is the strongest class. The class strip on the chart explains exact W/m2 ranges.",
       references: [
-        { label: "NOAA SWPC GOES X-ray Flux product", href: FETCH_REFERENCE_LINKS.noaaXrayFluxProduct },
-        { label: "NOAA SWPC GOES JSON endpoint", href: "https://services.swpc.noaa.gov/json/goes/" }
+        { label: "X-ray flux reference", href: FETCH_REFERENCE_LINKS.noaaXrayFluxProduct },
+        { label: "X-ray data endpoint", href: "https://services.swpc.noaa.gov/json/goes/" }
       ]
     };
   }
 
   if (normalized.includes("solar wind") || normalized.includes("speed") || normalized.includes("density") || normalized.includes("temperature") || normalized.includes("plasma")) {
     return {
-      definition: "Solar wind is charged plasma flowing outward from the Sun. SWPC uses upwind spacecraft near L1 to monitor speed, density, temperature, and magnetic-field changes before they reach Earth.",
+      definition: "Solar wind is charged plasma flowing outward from the Sun. Upwind spacecraft near L1 monitor speed, density, temperature, and magnetic-field changes before they reach Earth.",
       impact: "Fast or dense solar wind can compress Earth's magnetosphere. When it arrives with southward IMF Bz, geomagnetic activity and GNSS/radio impacts become more likely.",
       risk: "Sustained speed above about 650 km/s, elevated density, sudden jumps, or strong coupling with negative Bz deserve closer inspection.",
       references: [
-        { label: "NOAA SWPC Solar Wind product", href: FETCH_REFERENCE_LINKS.noaaSolarWindProduct },
-        { label: "NOAA SWPC real-time solar wind plasma JSON", href: FETCH_REFERENCE_LINKS.noaaSolarWindPlasma }
+        { label: "Solar wind reference", href: FETCH_REFERENCE_LINKS.noaaSolarWindProduct },
+        { label: "Real-time plasma endpoint", href: FETCH_REFERENCE_LINKS.noaaSolarWindPlasma }
       ]
     };
   }
@@ -4681,21 +5035,21 @@ function getTermReadContent(title: string, source = ""): {
       impact: "Southward Bz couples efficiently with Earth's magnetic field, allowing solar-wind energy to enter the magnetosphere and raise storm potential.",
       risk: "Sustained negative Bz, especially below about -5 nT with elevated Bt or fast solar wind, is an important warning sign for geomagnetic response.",
       references: [
-        { label: "NOAA SWPC Solar Wind product", href: FETCH_REFERENCE_LINKS.noaaSolarWindProduct },
-        { label: "NOAA SWPC real-time magnetic field JSON", href: FETCH_REFERENCE_LINKS.noaaSolarWindMag }
+        { label: "Solar wind reference", href: FETCH_REFERENCE_LINKS.noaaSolarWindProduct },
+        { label: "Real-time magnetic field endpoint", href: FETCH_REFERENCE_LINKS.noaaSolarWindMag }
       ]
     };
   }
 
   if (normalized.includes("kp") || normalized.includes("geomagnetic")) {
     return {
-      definition: "Kp is a planetary index that summarizes disturbances in Earth's magnetic field on a 0 to 9 scale. NOAA maps Kp values to the G-scale for geomagnetic storm severity.",
+      definition: "Kp is a planetary index that summarizes disturbances in Earth's magnetic field on a 0 to 9 scale. Kp values map to the G-scale for geomagnetic storm severity.",
       impact: "Higher Kp values indicate stronger geomagnetic activity that can affect satellites, power systems, HF communication, aurora visibility, and GNSS reliability.",
-      risk: "Kp 5 and above corresponds to NOAA G1 storm conditions. Kp 6 is G2, Kp 7 is G3, Kp 8 is G4, and Kp 9 is G5.",
+      risk: "Kp 5 and above corresponds to G1 storm conditions. Kp 6 is G2, Kp 7 is G3, Kp 8 is G4, and Kp 9 is G5.",
       references: [
-        { label: "NOAA SWPC Planetary K-index product", href: FETCH_REFERENCE_LINKS.noaaKpProduct },
-        { label: "NOAA Space Weather Scales explanation", href: FETCH_REFERENCE_LINKS.noaaScalesExplanation },
-        { label: "NOAA SWPC planetary K index JSON", href: FETCH_REFERENCE_LINKS.noaaKp }
+        { label: "Planetary K-index reference", href: FETCH_REFERENCE_LINKS.noaaKpProduct },
+        { label: "Scale explanation", href: FETCH_REFERENCE_LINKS.noaaScalesExplanation },
+        { label: "K-index data endpoint", href: FETCH_REFERENCE_LINKS.noaaKp }
       ]
     };
   }
@@ -4706,9 +5060,9 @@ function getTermReadContent(title: string, source = ""): {
       impact: "Large TEC values and sharp TEC gradients can delay GNSS signals, reduce positioning accuracy, and change HF/radio propagation conditions.",
       risk: "High TEC, strong positive anomaly, poor coverage, or clustered high-TEC regions are most important for GNSS positioning, timing, and survey workflows.",
       references: [
-        { label: "NOAA SWPC Total Electron Content explanation", href: FETCH_REFERENCE_LINKS.noaaTecPhenomena },
-        { label: "NOAA NCEI US-TEC and GloTEC product", href: FETCH_REFERENCE_LINKS.noaaTecNcei },
-        { label: "NOAA SWPC GloTEC product", href: FETCH_REFERENCE_LINKS.noaaGloTec }
+        { label: "Total Electron Content explanation", href: FETCH_REFERENCE_LINKS.noaaTecPhenomena },
+        { label: "TEC product reference", href: FETCH_REFERENCE_LINKS.noaaTecNcei },
+        { label: "TEC map reference", href: FETCH_REFERENCE_LINKS.noaaGloTec }
       ]
     };
   }
@@ -4717,24 +5071,24 @@ function getTermReadContent(title: string, source = ""): {
     return {
       definition: "A coronal mass ejection, or CME, is a large expulsion of plasma and magnetic field from the Sun's corona.",
       impact: "Earth-directed CMEs can drive geomagnetic storms after the ejecta reaches Earth, especially when the embedded magnetic field is southward.",
-      risk: "Fast CMEs, wide/halo CMEs, and DONKI events linked with shock arrivals or geomagnetic storms need closer monitoring.",
+      risk: "Fast CMEs, wide/halo CMEs, and events linked with shock arrivals or geomagnetic storms need closer monitoring.",
       references: [
-        { label: "NOAA SWPC Coronal Mass Ejections explanation", href: FETCH_REFERENCE_LINKS.noaaCmePhenomena },
-        { label: "NASA DONKI event catalog", href: FETCH_REFERENCE_LINKS.nasaDonkiCcmc },
-        { label: "NASA flares and CMEs explainer", href: FETCH_REFERENCE_LINKS.nasaFlaresCmes }
+        { label: "Coronal Mass Ejections explanation", href: FETCH_REFERENCE_LINKS.noaaCmePhenomena },
+        { label: "Event catalog", href: FETCH_REFERENCE_LINKS.nasaDonkiCcmc },
+        { label: "Flares and CMEs explainer", href: FETCH_REFERENCE_LINKS.nasaFlaresCmes }
       ]
     };
   }
 
   if (normalized.includes("flare") || normalized.includes("solar flares")) {
     return {
-      definition: "A solar flare is a rapid burst of electromagnetic radiation from an active region on the Sun. The dashboard relates flare events to GOES X-ray classes.",
+      definition: "A solar flare is a rapid burst of electromagnetic radiation from an active region on the Sun. The dashboard relates flare events to X-ray classes.",
       impact: "Large flares can cause sudden ionospheric changes on the sunlit side of Earth and can trigger radio-blackout conditions.",
       risk: "M-class and X-class events are most important operationally, especially when repeated or associated with a CME.",
       references: [
-        { label: "NOAA SWPC GOES X-ray Flux product", href: FETCH_REFERENCE_LINKS.noaaXrayFluxProduct },
-        { label: "NASA flares and CMEs explainer", href: FETCH_REFERENCE_LINKS.nasaFlaresCmes },
-        { label: "NASA DONKI event catalog", href: FETCH_REFERENCE_LINKS.nasaDonkiCcmc }
+        { label: "X-ray flux reference", href: FETCH_REFERENCE_LINKS.noaaXrayFluxProduct },
+        { label: "Flares and CMEs explainer", href: FETCH_REFERENCE_LINKS.nasaFlaresCmes },
+        { label: "Event catalog", href: FETCH_REFERENCE_LINKS.nasaDonkiCcmc }
       ]
     };
   }
@@ -4747,53 +5101,53 @@ function getReadReferences(title: string, source = ""): Array<{ label: string; h
 
   if (normalized.includes("solar wind") || normalized.includes("plasma")) {
     return [
-      { label: "NOAA SWPC real-time solar wind plasma JSON", href: FETCH_REFERENCE_LINKS.noaaSolarWindPlasma },
-      { label: "NOAA SWPC real-time magnetic field JSON", href: FETCH_REFERENCE_LINKS.noaaSolarWindMag }
+      { label: "Real-time plasma endpoint", href: FETCH_REFERENCE_LINKS.noaaSolarWindPlasma },
+      { label: "Real-time magnetic field endpoint", href: FETCH_REFERENCE_LINKS.noaaSolarWindMag }
     ];
   }
 
   if (normalized.includes("imf") || normalized.includes("magnetic field") || normalized.includes("bz")) {
-    return [{ label: "NOAA SWPC real-time magnetic field JSON", href: FETCH_REFERENCE_LINKS.noaaSolarWindMag }];
+    return [{ label: "Real-time magnetic field endpoint", href: FETCH_REFERENCE_LINKS.noaaSolarWindMag }];
   }
 
   if (normalized.includes("kp") || normalized.includes("geomagnetic")) {
     return [
-      { label: "NOAA SWPC planetary K index JSON", href: FETCH_REFERENCE_LINKS.noaaKp },
-      { label: "NOAA SWPC scales JSON", href: FETCH_REFERENCE_LINKS.noaaScales }
+      { label: "Planetary K-index endpoint", href: FETCH_REFERENCE_LINKS.noaaKp },
+      { label: "Scale endpoint", href: FETCH_REFERENCE_LINKS.noaaScales }
     ];
   }
 
   if (normalized.includes("alert") || normalized.includes("forecast") || normalized.includes("scale")) {
     return [
-      { label: "NOAA SWPC alerts JSON", href: FETCH_REFERENCE_LINKS.noaaAlerts },
-      { label: "NOAA SWPC scales JSON", href: FETCH_REFERENCE_LINKS.noaaScales }
+      { label: "Alert endpoint", href: FETCH_REFERENCE_LINKS.noaaAlerts },
+      { label: "Scale endpoint", href: FETCH_REFERENCE_LINKS.noaaScales }
     ];
   }
 
   if (normalized.includes("event") || normalized.includes("flare") || normalized.includes("cme")) {
     return [
-      { label: "NASA DONKI API base endpoint", href: FETCH_REFERENCE_LINKS.nasaDonkiApi },
-      { label: "CCMC DONKI fallback endpoint", href: FETCH_REFERENCE_LINKS.nasaDonkiCcmc }
+      { label: "Event API endpoint", href: FETCH_REFERENCE_LINKS.nasaDonkiApi },
+      { label: "Event fallback endpoint", href: FETCH_REFERENCE_LINKS.nasaDonkiCcmc }
     ];
   }
 
   if (normalized.includes("tec") || normalized.includes("ionosphere") || normalized.includes("gnss")) {
-    return [{ label: "NOAA SWPC GloTEC product", href: FETCH_REFERENCE_LINKS.noaaGloTec }];
+    return [{ label: "TEC map reference", href: FETCH_REFERENCE_LINKS.noaaGloTec }];
   }
 
   if (normalized.includes("imagery") || normalized.includes("source health")) {
     return [
-      { label: "NASA SDO AIA 131 latest image", href: FETCH_REFERENCE_LINKS.nasaSdoAia131 },
-      { label: "NASA SDO AIA 304 latest image", href: FETCH_REFERENCE_LINKS.nasaSdoAia304 },
-      { label: "NASA SDO HMI intensity latest image", href: FETCH_REFERENCE_LINKS.nasaSdoHmiIntensity },
-      { label: "NASA SDO HMI magnetogram latest image", href: FETCH_REFERENCE_LINKS.nasaSdoHmiMagnetogram }
+      { label: "AIA 131 latest image", href: FETCH_REFERENCE_LINKS.nasaSdoAia131 },
+      { label: "AIA 304 latest image", href: FETCH_REFERENCE_LINKS.nasaSdoAia304 },
+      { label: "HMI intensity latest image", href: FETCH_REFERENCE_LINKS.nasaSdoHmiIntensity },
+      { label: "HMI magnetogram latest image", href: FETCH_REFERENCE_LINKS.nasaSdoHmiMagnetogram }
     ];
   }
 
   return [
-    { label: "NOAA SWPC planetary K index JSON", href: FETCH_REFERENCE_LINKS.noaaKp },
-    { label: "NOAA SWPC real-time solar wind plasma JSON", href: FETCH_REFERENCE_LINKS.noaaSolarWindPlasma },
-    { label: "NOAA SWPC alerts JSON", href: FETCH_REFERENCE_LINKS.noaaAlerts }
+    { label: "Planetary K-index endpoint", href: FETCH_REFERENCE_LINKS.noaaKp },
+    { label: "Real-time plasma endpoint", href: FETCH_REFERENCE_LINKS.noaaSolarWindPlasma },
+    { label: "Alert endpoint", href: FETCH_REFERENCE_LINKS.noaaAlerts }
   ];
 }
 
@@ -4967,7 +5321,7 @@ function LineChart({
           </RechartsLineChart>
         </ResponsiveContainer>
       ) : (
-        <ChartEmptyState title="Live series unavailable" detail="NOAA SWPC returned an empty response for this product. Check Source Health for the upstream failure details." />
+        <ChartEmptyState title="Live series unavailable" detail="The live feed returned an empty response. Check Source Health for upstream status details." />
       )}
     </div>
   );
@@ -5007,7 +5361,7 @@ function KpBars({ points }: { points: KpPoint[] }) {
           </RechartsBarChart>
         </ResponsiveContainer>
       ) : (
-        <ChartEmptyState title="Kp series unavailable" detail="NOAA SWPC returned an empty Kp product response. Check Source Health for the upstream failure details." />
+        <ChartEmptyState title="Kp series unavailable" detail="The live Kp feed returned an empty response. Check Source Health for upstream status details." />
       )}
     </div>
   );
@@ -5184,11 +5538,10 @@ function EventTimelinePanel({
     <section id="events" className="panel timeline-panel" aria-labelledby="timeline-title">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">NASA DONKI events</p>
+          <p className="eyebrow">Event timeline</p>
           <h2 id="timeline-title">{title}</h2>
         </div>
         <div className="source-stack">
-          <span className="source-tag">{events.source}</span>
           <FreshnessBadge freshness={events.freshness} />
         </div>
       </div>
@@ -5215,8 +5568,8 @@ function EventTimelinePanel({
         <div className={events.freshness === "unavailable" ? "timeline-empty unavailable" : "timeline-empty"}>
           {events.freshness === "unavailable" ? <AlertTriangle aria-hidden="true" size={20} /> : null}
           <div>
-            <strong>{events.freshness === "unavailable" ? "DONKI events unavailable" : "No DONKI events in this window"}</strong>
-            {events.freshness === "unavailable" ? <p>{events.errorMessage ?? "NASA DONKI source unavailable"}</p> : null}
+            <strong>{events.freshness === "unavailable" ? "Events unavailable" : "No events in this window"}</strong>
+            {events.freshness === "unavailable" ? <p>{events.errorMessage ?? "Event feed unavailable"}</p> : null}
           </div>
         </div>
       ) : (
@@ -5299,7 +5652,7 @@ function EventDetailDrawer({ event, onClear }: { event: TimelineEvent | null; on
           </span>
           <span>
             <strong>{event.earthDirected ? "Earth-directed" : "Not Earth-directed"}</strong>
-            DONKI impact flag
+            Impact flag
           </span>
         </div>
       ) : null}
@@ -5326,7 +5679,7 @@ function EventDetailDrawer({ event, onClear }: { event: TimelineEvent | null; on
       {event.link ? (
         <a className="detail-link" href={event.link} target="_blank" rel="noreferrer">
           <ExternalLink aria-hidden="true" size={16} />
-          Open DONKI record
+          Open event record
         </a>
       ) : null}
     </aside>
@@ -5368,6 +5721,15 @@ function formatOperationalDateTime(value: string | null | undefined): string | n
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp) || timestamp <= Date.UTC(2001, 0, 1)) return null;
   return formatDateTime(value);
+}
+
+function formatSolarCycleMonth(value: string): string {
+  if (!/^\d{4}-\d{2}$/.test(value)) return value || "Unknown month";
+  return new Intl.DateTimeFormat("en", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}-01T00:00:00Z`));
+}
+
+function formatChartNumber(value: unknown): string {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(1) : "n/a";
 }
 
 function formatDateTime(value: string): string {

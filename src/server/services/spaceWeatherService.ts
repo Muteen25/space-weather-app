@@ -89,6 +89,24 @@ export type SolarActivityResponse = {
     freshness: Freshness;
     data: unknown[];
   };
+  solarCycle: {
+    source: "NOAA_SWPC_SOLAR_CYCLE";
+    lastUpdated: string | null;
+    freshness: Freshness;
+    observed: Array<{
+      month: string;
+      ssn: number | null;
+      smoothedSsn: number | null;
+    }>;
+    predicted: Array<{
+      month: string;
+      predictedSsn: number | null;
+      lowSsn: number | null;
+      highSsn: number | null;
+      low75Ssn: number | null;
+      high75Ssn: number | null;
+    }>;
+  };
   images: {
     source: "NASA_SDO";
     freshness: Freshness;
@@ -261,8 +279,10 @@ export function createLiveSpaceWeatherService(
     return cached("solar-activity", 120_000, async () => {
       const lastUpdated = new Date().toISOString();
       const liveXrayData = await fetchGoesXraySeries().catch(() => []);
+      const solarCycle = await fetchSolarCycleSunspotSeries().catch(() => ({ observed: [], predicted: [] }));
       const xrayData = liveXrayData.length > 0 ? liveXrayData : buildXrayFallbackSeries(lastUpdated);
       const latestLongChannel = [...xrayData].reverse().find((point) => point.energy === "0.1-0.8nm");
+      const latestSolarCycle = solarCycle.observed.at(-1);
       const xrayLastUpdated = latestLongChannel?.timestamp ?? lastUpdated;
       const xrayFreshness = liveXrayData.length > 0 ? calculateFreshness(xrayLastUpdated, 15) : "unavailable" as const;
       const sdoAia171Url = "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0171.jpg";
@@ -286,6 +306,13 @@ export function createLiveSpaceWeatherService(
           lastUpdated,
           freshness: "fresh" as const,
           data: []
+        },
+        solarCycle: {
+          source: "NOAA_SWPC_SOLAR_CYCLE" as const,
+          lastUpdated: latestSolarCycle ? `${latestSolarCycle.month}-01T00:00:00.000Z` : null,
+          freshness: solarCycle.observed.length > 0 ? "fresh" as const : "unavailable" as const,
+          observed: solarCycle.observed,
+          predicted: solarCycle.predicted
         },
         images: {
           source: "NASA_SDO" as const,
@@ -313,10 +340,11 @@ export function createLiveSpaceWeatherService(
     ]);
     const latestSolarWind = solarWind.data.at(-1);
     const conditionInputKp = kp.current ?? 0;
+    const currentGScale = maxGScale(kp.gScale, scales.current.gScale);
     const classification = classifyOverallCondition({
       kp: conditionInputKp,
       scales: {
-        g: scales.current.gScale,
+        g: currentGScale,
         r: scales.current.rScale,
         s: scales.current.sScale
       }
@@ -330,7 +358,7 @@ export function createLiveSpaceWeatherService(
       mainCause: classification.mainCause,
       lastUpdated: lastUpdated ?? new Date(0).toISOString(),
       kp: kp.current,
-      gScale: scales.current.gScale,
+      gScale: currentGScale,
       rScale: scales.current.rScale,
       sScale: scales.current.sScale,
       solarWindSpeed: latestSolarWind?.speedKmPerSec ?? null,
@@ -458,6 +486,10 @@ function unavailableMagneticField(range: DashboardRange) {
     freshness: "stale" as const,
     data
   };
+}
+
+function maxGScale(first: GScale, second: GScale): GScale {
+  return Number(first.slice(1)) >= Number(second.slice(1)) ? first : second;
 }
 
 function unavailableKp() {
@@ -637,6 +669,7 @@ async function fetchImageLastModified(url: string): Promise<string | null> {
 
 async function fetchGoesXraySeries(): Promise<SolarActivityResponse["xray"]["data"]> {
   const urls = [
+    "https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json",
     "https://services.swpc.noaa.gov/json/goes/primary/xrays-3-day.json",
     "https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json",
     "https://services.swpc.noaa.gov/json/goes/secondary/xrays-3-day.json"
@@ -655,6 +688,59 @@ async function fetchGoesXraySeries(): Promise<SolarActivityResponse["xray"]["dat
   }
 
   return [];
+}
+
+async function fetchSolarCycleSunspotSeries(): Promise<Pick<SolarActivityResponse["solarCycle"], "observed" | "predicted">> {
+  const [observedResponse, predictedResponse] = await Promise.all([
+    fetch("https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-indices.json", { headers: { Accept: "application/json" } }),
+    fetch("https://services.swpc.noaa.gov/json/solar-cycle/predicted-solar-cycle.json", { headers: { Accept: "application/json" } })
+  ]);
+
+  const observed = observedResponse.ok ? parseObservedSolarCycle(await observedResponse.json()) : [];
+  const predicted = predictedResponse.ok ? parsePredictedSolarCycle(await predictedResponse.json()) : [];
+
+  return { observed, predicted };
+}
+
+function parseObservedSolarCycle(raw: unknown): SolarActivityResponse["solarCycle"]["observed"] {
+  if (!Array.isArray(raw)) return [];
+
+  return raw.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const record = item as Record<string, unknown>;
+    const month = getString(record["time-tag"]);
+    if (!month) return [];
+
+    return [{
+      month,
+      ssn: normalizeSolarCycleNumber(getNumber(record.ssn)),
+      smoothedSsn: normalizeSolarCycleNumber(getNumber(record.smoothed_ssn))
+    }];
+  });
+}
+
+function parsePredictedSolarCycle(raw: unknown): SolarActivityResponse["solarCycle"]["predicted"] {
+  if (!Array.isArray(raw)) return [];
+
+  return raw.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const record = item as Record<string, unknown>;
+    const month = getString(record["time-tag"]);
+    if (!month) return [];
+
+    return [{
+      month,
+      predictedSsn: normalizeSolarCycleNumber(getNumber(record.predicted_ssn)),
+      lowSsn: normalizeSolarCycleNumber(getNumber(record.low_ssn)),
+      highSsn: normalizeSolarCycleNumber(getNumber(record.high_ssn)),
+      low75Ssn: normalizeSolarCycleNumber(getNumber(record.low75_ssn)),
+      high75Ssn: normalizeSolarCycleNumber(getNumber(record.high75_ssn))
+    }];
+  });
+}
+
+function normalizeSolarCycleNumber(value: number | null): number | null {
+  return value === null || value < 0 ? null : value;
 }
 
 function parseGoesXrayProduct(raw: unknown): SolarActivityResponse["xray"]["data"] {

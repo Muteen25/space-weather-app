@@ -52,10 +52,13 @@ export function classifyOverallCondition(input: {
   }
 
   const kpSeverity = kpToSeverity(input.kp);
+  const conditionDescription = kpSeverity.condition === "Quiet"
+    ? "quiet geomagnetic"
+    : kpSeverity.condition.toLowerCase();
 
   return {
     ...kpSeverity,
-    mainCause: `Kp ${input.kp.toFixed(1)} indicates ${kpSeverity.condition.toLowerCase()} conditions`
+    mainCause: `Kp ${input.kp.toFixed(1)} indicates ${conditionDescription} conditions`
   };
 }
 
