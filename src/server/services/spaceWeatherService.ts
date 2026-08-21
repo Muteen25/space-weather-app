@@ -1,10 +1,11 @@
 import { buildImpactSummary } from "../../shared/impact";
-import { classifyOverallCondition, kpToGScale } from "../../shared/severity";
+import { classifyOverallCondition, flareClassToRadioScale, kpToGScale, protonFluxToRadiationScale } from "../../shared/severity";
 import type { DashboardConditionInput, GScale, RScale, SScale, SeverityLevel } from "../../shared/types";
 import {
   calculateFreshness,
   type AlertRecord,
   type DashboardRange,
+  type DstPoint,
   type Freshness,
   type KpPoint,
   type MagneticFieldPoint,
@@ -83,6 +84,20 @@ export type SolarActivityResponse = {
       satellite?: number | null;
     }>;
   };
+  protonFlux: {
+    source: "NOAA_SWPC_GOES_PROTONS";
+    lastUpdated: string | null;
+    freshness: Freshness;
+    fluxPfu: number | null;
+    energy: string;
+    satellite: number | null;
+    data: Array<{
+      timestamp: string;
+      fluxPfu: number | null;
+      energy: string;
+      satellite: number | null;
+    }>;
+  };
   regions: {
     source: "NOAA_SWPC_SOLAR_REGIONS";
     lastUpdated: string | null;
@@ -143,6 +158,13 @@ export type SpaceWeatherService = {
     gScale: GScale;
     freshness: Freshness;
     data: KpPoint[];
+  }>;
+  getDst(): Promise<{
+    source: "NOAA_SWPC";
+    lastUpdated: string | null;
+    current: number | null;
+    freshness: Freshness;
+    data: DstPoint[];
   }>;
   getScales(): Promise<{
     source: "NOAA_SWPC";
@@ -237,6 +259,25 @@ export function createLiveSpaceWeatherService(
     });
   }
 
+  async function getDst() {
+    return cached("dst", 180_000, async () => {
+      try {
+        const data = await client.getDst();
+        const current = data.at(-1)?.value ?? null;
+        const lastUpdated = data.at(-1)?.timestamp ?? null;
+        return {
+          source: "NOAA_SWPC" as const,
+          lastUpdated,
+          current,
+          freshness: calculateFreshness(lastUpdated, 240),
+          data
+        };
+      } catch {
+        return unavailableDst();
+      }
+    });
+  }
+
   async function getScales() {
     return cached("scales", 60_000, async () => {
       try {
@@ -279,6 +320,8 @@ export function createLiveSpaceWeatherService(
     return cached("solar-activity", 120_000, async () => {
       const lastUpdated = new Date().toISOString();
       const liveXrayData = await fetchGoesXraySeries().catch(() => []);
+      const protonFluxData = await fetchGoesProtonFluxSeries().catch(() => []);
+      const latestProtonFlux = [...protonFluxData].reverse().find((point) => point.energy === ">=10 MeV");
       const solarCycle = await fetchSolarCycleSunspotSeries().catch(() => ({ observed: [], predicted: [] }));
       const xrayData = liveXrayData.length > 0 ? liveXrayData : buildXrayFallbackSeries(lastUpdated);
       const latestLongChannel = [...xrayData].reverse().find((point) => point.energy === "0.1-0.8nm");
@@ -300,6 +343,15 @@ export function createLiveSpaceWeatherService(
           currentFluxWm2: latestLongChannel?.fluxWm2 ?? null,
           primarySatellite: latestLongChannel?.satellite ?? 18,
           data: xrayData
+        },
+        protonFlux: {
+          source: "NOAA_SWPC_GOES_PROTONS" as const,
+          lastUpdated: latestProtonFlux?.timestamp ?? null,
+          freshness: latestProtonFlux?.timestamp ? calculateFreshness(latestProtonFlux.timestamp, 30) : "unavailable" as const,
+          fluxPfu: latestProtonFlux?.fluxPfu ?? null,
+          energy: ">=10 MeV",
+          satellite: latestProtonFlux?.satellite ?? null,
+          data: protonFluxData
         },
         regions: {
           source: "NOAA_SWPC_SOLAR_REGIONS" as const,
@@ -332,24 +384,29 @@ export function createLiveSpaceWeatherService(
   }
 
   async function getDashboardSummary(): Promise<DashboardSummary> {
-    const [solarWind, kp, scales, alerts] = await Promise.all([
+    const [solarWind, kp, scales, alerts, solarActivity] = await Promise.all([
       getSolarWind("2h"),
       getKp(),
       getScales(),
-      getAlerts()
+      getAlerts(),
+      getSolarActivity()
     ]);
     const latestSolarWind = solarWind.data.at(-1);
     const conditionInputKp = kp.current ?? 0;
     const currentGScale = maxGScale(kp.gScale, scales.current.gScale);
+    const derivedRScale = solarActivity.xray.currentClass ? flareClassToRadioScale(solarActivity.xray.currentClass) : "R0";
+    const currentRScale = maxScale(scales.current.rScale, derivedRScale) as RScale;
+    const derivedSScale = protonFluxToRadiationScale(solarActivity.protonFlux.fluxPfu);
+    const currentSScale = maxScale(scales.current.sScale, derivedSScale) as SScale;
     const classification = classifyOverallCondition({
       kp: conditionInputKp,
       scales: {
         g: currentGScale,
-        r: scales.current.rScale,
-        s: scales.current.sScale
+        r: currentRScale,
+        s: currentSScale
       }
     });
-    const lastUpdated = latestOf([solarWind.lastUpdated, kp.lastUpdated, scales.lastUpdated, alerts.lastUpdated]);
+    const lastUpdated = latestOf([solarWind.lastUpdated, kp.lastUpdated, scales.lastUpdated, alerts.lastUpdated, solarActivity.xray.lastUpdated, solarActivity.protonFlux.lastUpdated]);
     const summaryFreshness = calculateFreshness(lastUpdated, 30);
 
     return {
@@ -359,11 +416,11 @@ export function createLiveSpaceWeatherService(
       lastUpdated: lastUpdated ?? new Date(0).toISOString(),
       kp: kp.current,
       gScale: currentGScale,
-      rScale: scales.current.rScale,
-      sScale: scales.current.sScale,
+      rScale: currentRScale,
+      sScale: currentSScale,
       solarWindSpeed: latestSolarWind?.speedKmPerSec ?? null,
       bz: latestSolarWind?.bzNt ?? null,
-      latestFlare: null,
+      latestFlare: solarActivity.xray.currentClass,
       activeAlerts: alerts.alerts.filter((alert) => alert.status === "active").length,
       source: "NOAA_SWPC",
       freshness: summaryFreshness
@@ -450,6 +507,7 @@ export function createLiveSpaceWeatherService(
     getSolarWind,
     getMagneticField,
     getKp,
+    getDst,
     getScales,
     getAlerts,
     getSolarActivity,
@@ -492,6 +550,10 @@ function maxGScale(first: GScale, second: GScale): GScale {
   return Number(first.slice(1)) >= Number(second.slice(1)) ? first : second;
 }
 
+function maxScale<TScale extends GScale | RScale | SScale>(first: TScale, second: TScale): TScale {
+  return Number(first.slice(1)) >= Number(second.slice(1)) ? first : second;
+}
+
 function unavailableKp() {
   const data = buildPastKpFallback();
   const current = data.at(-1)?.value ?? null;
@@ -502,6 +564,20 @@ function unavailableKp() {
     lastUpdated,
     current,
     gScale: current === null ? "G0" as const : kpToGScale(current),
+    freshness: "stale" as const,
+    data
+  };
+}
+
+function unavailableDst() {
+  const data = buildPastDstFallback();
+  const current = data.at(-1)?.value ?? null;
+  const lastUpdated = data.at(-1)?.timestamp ?? null;
+
+  return {
+    source: "NOAA_SWPC" as const,
+    lastUpdated,
+    current,
     freshness: "stale" as const,
     data
   };
@@ -656,6 +732,17 @@ function buildPastKpFallback(): KpPoint[] {
   });
 }
 
+function buildPastDstFallback(): DstPoint[] {
+  const endMs = Date.now() - 6 * 60 * 60_000;
+  const count = 48;
+  const startMs = endMs - (count - 1) * 60 * 60_000;
+
+  return Array.from({ length: count }, (_unused, index) => ({
+    timestamp: new Date(startMs + index * 60 * 60_000).toISOString(),
+    value: Math.round(-12 + Math.sin(index / 5) * 9 + seededJitter(index + 71, 6))
+  }));
+}
+
 async function fetchImageLastModified(url: string): Promise<string | null> {
   try {
     const response = await fetch(url, { method: "HEAD" });
@@ -688,6 +775,43 @@ async function fetchGoesXraySeries(): Promise<SolarActivityResponse["xray"]["dat
   }
 
   return [];
+}
+
+async function fetchGoesProtonFluxSeries(): Promise<SolarActivityResponse["protonFlux"]["data"]> {
+  const urls = [
+    "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-7-day.json",
+    "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-3-day.json",
+    "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json",
+    "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-6-hour.json"
+  ];
+
+  let raw: unknown = [];
+  for (const url of urls) {
+    const response = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!response.ok) continue;
+    raw = await response.json() as unknown;
+    if (Array.isArray(raw) && raw.length > 0) break;
+  }
+
+  if (!Array.isArray(raw)) return [];
+  const chartEnergies = new Set([">=10 MeV", ">=50 MeV", ">=100 MeV", ">=500 MeV"]);
+
+  const points: SolarActivityResponse["protonFlux"]["data"] = raw.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const record = item as Record<string, unknown>;
+    const timestamp = getString(record.time_tag);
+    const energy = getString(record.energy);
+    const flux = getNumber(record.flux);
+    if (!timestamp || !energy || !chartEnergies.has(energy) || flux === null) return [];
+    return [{
+      timestamp,
+      fluxPfu: roundTo(flux, 2),
+      energy,
+      satellite: getNumber(record.satellite)
+    }];
+  });
+
+  return points.sort((left, right) => Date.parse(left.timestamp) - Date.parse(right.timestamp));
 }
 
 async function fetchSolarCycleSunspotSeries(): Promise<Pick<SolarActivityResponse["solarCycle"], "observed" | "predicted">> {

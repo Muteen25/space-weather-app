@@ -1,5 +1,6 @@
 import {
   parseAlertsProduct,
+  parseDstProduct,
   parseKpProduct,
   parseMagProduct,
   parsePlasmaProduct,
@@ -122,6 +123,18 @@ describe("NOAA SWPC adapter parsers", () => {
         aRunning: 8,
         stationCount: 7
       }
+    ]);
+  });
+
+  it("parses Kyoto Dst rows and sorts latest last", () => {
+    const result = parseDstProduct([
+      { time_tag: "2026-08-14T07:00:00", dst: "-18" },
+      { time_tag: "2026-08-14T06:00:00", dst: -15 }
+    ]);
+
+    expect(result).toEqual([
+      { timestamp: "2026-08-14T06:00:00.000Z", value: -15 },
+      { timestamp: "2026-08-14T07:00:00.000Z", value: -18 }
     ]);
   });
 

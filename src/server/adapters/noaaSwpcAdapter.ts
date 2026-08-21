@@ -34,6 +34,11 @@ export type KpPoint = {
   stationCount?: number | null;
 };
 
+export type DstPoint = {
+  timestamp: string;
+  value: number;
+};
+
 export type ScaleSnapshot = {
   timestamp: string;
   gScale: GScale;
@@ -99,6 +104,11 @@ export class NoaaSwpcClient {
     return parseKpProduct(raw);
   }
 
+  async getDst(): Promise<DstPoint[]> {
+    const raw = await this.fetchNoaa<unknown[]>("NOAA_SWPC_DST_INDEX", "/products/kyoto-dst.json");
+    return parseDstProduct(raw);
+  }
+
   async getScales(): Promise<ScalesProduct> {
     const raw = await this.fetchNoaa<Record<string, unknown>>("NOAA_SWPC_SCALES", "/products/noaa-scales.json");
     return parseScalesProduct(raw);
@@ -115,6 +125,7 @@ export class NoaaSwpcClient {
       "NOAA_SWPC_SOLAR_WIND_MAG",
       "NOAA_SWPC_MAGNETIC_FIELD",
       "NOAA_SWPC_KP_INDEX",
+      "NOAA_SWPC_DST_INDEX",
       "NOAA_SWPC_SCALES",
       "NOAA_SWPC_ALERTS"
     ];
@@ -213,6 +224,16 @@ export function parseKpProduct(raw: unknown[]): KpPoint[] {
         stationCount: nullableNumber(row.station_count)
       };
     })
+    .filter((point) => Boolean(point.timestamp) && Number.isFinite(point.value))
+    .sort((left, right) => Date.parse(left.timestamp) - Date.parse(right.timestamp));
+}
+
+export function parseDstProduct(raw: unknown[]): DstPoint[] {
+  return productRows(raw)
+    .map((row) => ({
+      timestamp: parseNoaaTimestamp(row.time_tag),
+      value: Number(row.dst)
+    }))
     .filter((point) => Boolean(point.timestamp) && Number.isFinite(point.value))
     .sort((left, right) => Date.parse(left.timestamp) - Date.parse(right.timestamp));
 }

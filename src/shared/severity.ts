@@ -37,6 +37,16 @@ export function flareClassToRadioScale(flareClass: string): RScale {
   return "R0";
 }
 
+export function protonFluxToRadiationScale(fluxPfu: number | null | undefined): SScale {
+  if (typeof fluxPfu !== "number") return "S0";
+  if (fluxPfu >= 100000) return "S5";
+  if (fluxPfu >= 10000) return "S4";
+  if (fluxPfu >= 1000) return "S3";
+  if (fluxPfu >= 100) return "S2";
+  if (fluxPfu >= 10) return "S1";
+  return "S0";
+}
+
 export function classifyOverallCondition(input: {
   kp: number;
   scales: { g: GScale; r: RScale; s: SScale };

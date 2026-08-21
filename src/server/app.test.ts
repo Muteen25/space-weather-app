@@ -77,6 +77,13 @@ describe("public API phase 2 dashboard", () => {
       freshness: "fresh",
       data: [{ timestamp: "2026-05-14T06:00:00.000Z", value: 4.67 }]
     })),
+    getDst: vi.fn(async () => ({
+      source: "NOAA_SWPC",
+      lastUpdated: "2026-05-14T06:00:00.000Z",
+      current: -24,
+      freshness: "fresh",
+      data: [{ timestamp: "2026-05-14T06:00:00.000Z", value: -24 }]
+    })),
     getScales: vi.fn(async () => ({
       source: "NOAA_SWPC",
       lastUpdated: "2026-05-14T07:00:00.000Z",
@@ -227,6 +234,14 @@ describe("public API phase 2 dashboard", () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({ current: 4.67, gScale: "G0", source: "NOAA_SWPC" });
+  });
+
+  it("returns Dst index readings for ring-current context", async () => {
+    const response = await request(app).get("/api/dst");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ current: -24, source: "NOAA_SWPC" });
+    expect(response.body.data[0]).toEqual(expect.objectContaining({ value: -24 }));
   });
 
   it("returns NOAA space weather scale cards", async () => {

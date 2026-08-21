@@ -48,6 +48,7 @@ import {
   MapPin,
   Magnet,
   Moon,
+  Phone,
   Radio,
   RefreshCw,
   Satellite,
@@ -148,6 +149,19 @@ type KpResponse = {
   data: KpPoint[];
 };
 
+type DstPoint = {
+  timestamp: string;
+  value: number;
+};
+
+type DstResponse = {
+  source: string;
+  lastUpdated: string | null;
+  current: number | null;
+  freshness: Freshness;
+  data: DstPoint[];
+};
+
 type ScalesResponse = {
   source: string;
   lastUpdated: string | null;
@@ -240,6 +254,20 @@ type SolarActivityResponse = {
       satellite?: number | null;
     }>;
   };
+  protonFlux: {
+    source: string;
+    lastUpdated: string | null;
+    freshness: Freshness;
+    fluxPfu: number | null;
+    energy: string;
+    satellite: number | null;
+    data: Array<{
+      timestamp: string;
+      fluxPfu: number | null;
+      energy: string;
+      satellite: number | null;
+    }>;
+  };
   regions: {
     source: string;
     lastUpdated: string | null;
@@ -322,6 +350,7 @@ type DashboardData = {
   solarWind: SolarWindResponse;
   magneticField: MagneticFieldResponse;
   kp: KpResponse;
+  dst: DstResponse;
   scales: ScalesResponse;
   alerts: AlertsResponse;
   events: EventsResponse;
@@ -446,6 +475,7 @@ const LANDING_CARDS = [
     links: [
       { label: "X-ray Flux", section: "overview-1-xray" },
       { label: "Solar Flares", section: "overview-1-flares" },
+      { label: "Proton Flux", section: "overview-1-protons" },
       { label: "Sunspots", section: "overview-1-sunspots" },
       { label: "Coronal Mass Ejections", section: "overview-1-cme" },
       { label: "Solar Imagery", section: "overview-1-imagery" }
@@ -500,6 +530,7 @@ const LAYER_MENU_KEYS = [
 const SUBSECTION_PARENT: Record<string, string> = {
   "overview-1-xray": "layer-sun",
   "overview-1-flares": "layer-sun",
+  "overview-1-protons": "layer-sun",
   "overview-1-sunspots": "layer-sun",
   "overview-1-cme": "layer-sun",
   "overview-1-imagery": "layer-sun",
@@ -793,13 +824,17 @@ const ROUTE_PATHS: Record<SiteRoute, string> = {
   sources: "/glossary"
 };
 
+const DEFAULT_OBSERVATORY_SECTION = "layer-sun";
+
 function getInitialObservatorySection() {
-  if (window.location.pathname !== "/observatory") return "overview";
-  return new URLSearchParams(window.location.search).get("section") || "overview";
+  if (window.location.pathname !== "/observatory") return DEFAULT_OBSERVATORY_SECTION;
+  const section = new URLSearchParams(window.location.search).get("section");
+  return section && section !== "overview" ? section : DEFAULT_OBSERVATORY_SECTION;
 }
 
-function observatoryHref(section = "overview") {
-  return section === "overview" ? "/observatory" : `/observatory?section=${encodeURIComponent(section)}`;
+function observatoryHref(section = DEFAULT_OBSERVATORY_SECTION) {
+  const nextSection = section === "overview" ? DEFAULT_OBSERVATORY_SECTION : section;
+  return `/observatory?section=${encodeURIComponent(nextSection)}`;
 }
 
 const LANDING_NAV_ITEMS: Array<{
@@ -807,13 +842,13 @@ const LANDING_NAV_ITEMS: Array<{
   section: string;
   children?: Array<{ label: string; section: string }>;
 }> = [
-  { label: "Overview", section: "overview" },
   {
     label: "Sun",
     section: "layer-sun",
     children: [
       { label: "X-ray Flux", section: "overview-1-xray" },
       { label: "Solar Flares", section: "overview-1-flares" },
+      { label: "Proton Flux", section: "overview-1-protons" },
       { label: "Sunspots", section: "overview-1-sunspots" },
       { label: "Coronal Mass Ejections", section: "overview-1-cme" },
       { label: "Solar Imagery", section: "overview-1-imagery" }
@@ -1026,12 +1061,13 @@ export default function App() {
     setError(null);
 
     try {
-      const [summary, impacts, solarWind, magneticField, kp, scales, alerts, events, solarActivity, glotec] = await Promise.all([
+      const [summary, impacts, solarWind, magneticField, kp, dst, scales, alerts, events, solarActivity, glotec] = await Promise.all([
         fetchJson<DashboardSummary>("/api/dashboard/summary"),
         fetchJson<ImpactResponse>("/api/impact-summary"),
         fetchJson<SolarWindResponse>(`/api/solar-wind?range=${nextRange}`),
         fetchJson<MagneticFieldResponse>(`/api/magnetic-field?range=${nextRange}`),
         fetchJson<KpResponse>("/api/kp"),
+        fetchJson<DstResponse>("/api/dst"),
         fetchJson<ScalesResponse>("/api/scales"),
         fetchJson<AlertsResponse>("/api/alerts"),
         fetchJson<EventsResponse>("/api/events?limit=8"),
@@ -1040,7 +1076,7 @@ export default function App() {
       ]);
       const sourceHealth = await fetchJson<SourceHealthResponse>("/api/source-health");
 
-      setData({ summary, impacts, solarWind, magneticField, kp, scales, alerts, events, solarActivity, glotec, sourceHealth });
+      setData({ summary, impacts, solarWind, magneticField, kp, dst, scales, alerts, events, solarActivity, glotec, sourceHealth });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to load dashboard data");
     } finally {
@@ -1074,9 +1110,10 @@ export default function App() {
     }
   }, [route]);
 
-  function launchObservatory(section = "overview") {
-    setLaunchSection(section);
-    window.history.pushState({}, "", observatoryHref(section));
+  function launchObservatory(section = DEFAULT_OBSERVATORY_SECTION) {
+    const normalizedSection = section === "overview" ? DEFAULT_OBSERVATORY_SECTION : section;
+    setLaunchSection(normalizedSection);
+    window.history.pushState({}, "", observatoryHref(normalizedSection));
     setRoute("observatory");
   }
 
@@ -1202,6 +1239,7 @@ function LandingPage({
   const solarWindSpeed = formatOptional(latestWind?.speedKmPerSec ?? summary?.solarWindSpeed, "km/s", 0);
   const solarWindBz = formatSigned(latestField?.bzGsmNt ?? summary?.bz, "nT");
   const xrayFlux = data?.solarActivity.xray.currentFluxWm2;
+  const protonFlux = data?.solarActivity.protonFlux.fluxPfu;
   const meanTec = data?.glotec.summary.meanTec;
   const maxTec = data?.glotec.summary.maxTec;
   const healthySources = data?.sourceHealth.sources.filter((source) => source.status === "healthy").length;
@@ -1295,12 +1333,10 @@ function LandingPage({
       label: "Current Condition",
       value: summary?.condition ?? "Pending",
       badge: summary?.freshness === "fresh" ? "Fresh" : summary?.freshness === "stale" ? "Stale" : "Pending",
-      detail: summary?.kp === null || summary?.kp === undefined
-        ? "Waiting for live Kp conditions."
-        : `Kp ${summary.kp.toFixed(1)} indicates ${summary.condition === "Quiet" ? "quiet geomagnetic" : summary.condition.toLowerCase()} conditions.`,
+      detail: "",
       icon: Activity,
       tone: summary?.overallSeverity ?? "low",
-      section: "overview",
+      section: "overview-1-status",
       facts: [
         ["G scale", summary?.gScale ?? "G0"],
         ["R scale", summary?.rScale ?? "R0"],
@@ -1309,38 +1345,38 @@ function LandingPage({
       footer: summary?.lastUpdated ? `Updated ${formatDateTime(summary.lastUpdated)} UTC` : "Update pending"
     },
     {
-      label: "IMF Bz",
-      value: solarWindBz === "Unavailable" ? "Pending" : solarWindBz,
-      badge: latestField?.bzGsmNt !== null && latestField?.bzGsmNt !== undefined && latestField.bzGsmNt < -5 ? "Moderate" : "Low",
-      detail: "Interplanetary Magnetic Field",
-      icon: Magnet,
-      tone: latestField?.bzGsmNt !== null && latestField?.bzGsmNt !== undefined && latestField.bzGsmNt < -5 ? "moderate" as SeverityLevel : "low" as SeverityLevel,
-      section: "overview-1-imf"
-    },
-    {
-      label: "Kp Index",
+      label: "G Scale",
       value: summary?.kp === null || summary?.kp === undefined ? "Pending" : `Kp ${summary.kp.toFixed(1)}`,
-      badge: severityLabels[summary?.overallSeverity ?? "low"],
-      detail: `${summary?.gScale ?? "G0"} geomagnetic scale`,
+      badge: scaleToStatusLabel(summary?.gScale),
+      detail: "Kp index",
       icon: Gauge,
-      tone: summary?.overallSeverity ?? "low",
+      tone: scaleToSeverityTone(summary?.gScale),
       section: "overview-1-kp"
     },
     {
-      label: "TEC Value",
-      value: meanTec === null || meanTec === undefined ? "Pending" : `${meanTec.toFixed(1)} TECU`,
-      badge: maxTec === null || maxTec === undefined ? "Pending" : "Live",
-      detail: maxTec === null || maxTec === undefined ? "Ionosphere grid pending" : `Max ${maxTec.toFixed(1)} TECU`,
-      icon: Satellite,
-      tone: "low" as SeverityLevel,
-      section: "overview-1-tec"
+      label: "R Scale",
+      value: currentClass === "B-class" ? "Pending" : currentClass,
+      badge: scaleToStatusLabel(summary?.rScale),
+      detail: xrayFlux === null || xrayFlux === undefined ? "X-ray flare class" : `X-ray flux ${formatScientific(xrayFlux, "W/m2")}`,
+      icon: Radio,
+      tone: scaleToSeverityTone(summary?.rScale),
+      section: "overview-1-xray"
+    },
+    {
+      label: "S Scale",
+      value: protonFlux === null || protonFlux === undefined ? "Pending" : `${protonFlux.toFixed(2)} pfu`,
+      badge: scaleToStatusLabel(summary?.sScale),
+      detail: ">10 MeV proton flux",
+      icon: Zap,
+      tone: scaleToSeverityTone(summary?.sScale),
+      section: "overview-1-protons"
     }
   ];
 
   return (
     <main className="landing-page theme-dark">
       <header className="landing-topbar">
-        <button className="landing-brand" type="button" onClick={() => onLaunch("overview")} aria-label="Open live dashboard">
+        <button className="landing-brand" type="button" onClick={() => onLaunch(DEFAULT_OBSERVATORY_SECTION)} aria-label="Open live dashboard">
           <img src={BRAND_LOGO_DARK_SRC} alt={`${LANDING_APP_NAME} - ${HEADER_AFFILIATIONS.join(" - ")}`} />
         </button>
         <nav className="landing-nav" aria-label="Landing navigation">
@@ -1404,7 +1440,7 @@ function LandingPage({
             near-Earth environment.
           </p>
           <div className="landing-actions">
-            <a className="landing-primary-link" href={observatoryHref("overview")} onClick={(event) => { event.preventDefault(); onLaunch("overview"); }}>
+            <a className="landing-primary-link" href={observatoryHref(DEFAULT_OBSERVATORY_SECTION)} onClick={(event) => { event.preventDefault(); onLaunch(DEFAULT_OBSERVATORY_SECTION); }}>
               <Gauge aria-hidden="true" size={18} />
               Live Dashboard
             </a>
@@ -1424,13 +1460,32 @@ function LandingPage({
                   <span className={`landing-summary-icon severity-${card.tone}`}>
                     <Icon aria-hidden="true" size={22} />
                   </span>
+                  {isConditionCard ? (
+                    <span
+                      className="landing-summary-read-floating"
+                      role="button"
+                      tabIndex={0}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onLaunch("overview-1-reference");
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter" && event.key !== " ") return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        onLaunch("overview-1-reference");
+                      }}
+                    >
+                      Read
+                    </span>
+                  ) : null}
                   <span className="landing-summary-body">
                     <span className="landing-summary-topline">
                       <span className="landing-summary-label">{card.label}</span>
                       <span className={`landing-summary-badge severity-${card.tone}`}>{card.badge}</span>
                     </span>
                     <strong>{card.value}</strong>
-                    <span className="landing-summary-detail">{card.detail}</span>
+                    {card.detail ? <span className="landing-summary-detail">{card.detail}</span> : null}
                     {isConditionCard && "facts" in card ? (
                       <span className="landing-summary-facts">
                         {card.facts.map(([label, value]) => (
@@ -1441,7 +1496,11 @@ function LandingPage({
                         ))}
                       </span>
                     ) : null}
-                    {isConditionCard && "footer" in card ? <span className="landing-summary-footer">{card.footer}</span> : null}
+                    {isConditionCard && "footer" in card ? (
+                      <span className="landing-summary-footer-row">
+                        <span className="landing-summary-footer">{card.footer}</span>
+                      </span>
+                    ) : null}
                   </span>
                 </button>
               );
@@ -1488,7 +1547,7 @@ function LandingPage({
           <p>
             Monitor the Sun-Earth environment through four dedicated observation portals.
           </p>
-          <a href={observatoryHref("overview")} onClick={(event) => { event.preventDefault(); onLaunch("overview"); }}>
+          <a href={observatoryHref(DEFAULT_OBSERVATORY_SECTION)} onClick={(event) => { event.preventDefault(); onLaunch(DEFAULT_OBSERVATORY_SECTION); }}>
             View All Sections
             <ExternalLink aria-hidden="true" size={15} />
           </a>
@@ -1574,7 +1633,6 @@ function ObservatoryFooter({ onNavigate }: { onNavigate: (section: string) => vo
   }
 
   const quickLinks = [
-    { label: "Overview", section: "overview" },
     { label: "Sun", section: "layer-sun" },
     { label: "Solar Wind & IMF", section: "layer-solar-wind" },
     { label: "Geomagnetic Field", section: "layer-geomagnetic" },
@@ -1597,13 +1655,13 @@ function ObservatoryFooter({ onNavigate }: { onNavigate: (section: string) => vo
       <div className="footer-body-shell">
       <div className="footer-content">
         <div className="footer-panel footer-identity">
-          <p className="footer-eyebrow">GNSS Research Lab</p>
+          <p className="footer-eyebrow">GNSS Research Lab · NCGSA</p>
           <h2>NCGSA Space Weather Observatory</h2>
           <a href={FOOTER_LINKS.gnssWebsite} target="_blank" rel="noreferrer">
             <span className="footer-social-icon">
               <Globe2 aria-hidden="true" size={18} />
             </span>
-            GNSS Research Lab Website
+            Website
           </a>
           <div className="footer-socials" aria-label="GNSS social links">
             <a href={FOOTER_LINKS.gnssLinkedin} target="_blank" rel="noreferrer">
@@ -1614,12 +1672,14 @@ function ObservatoryFooter({ onNavigate }: { onNavigate: (section: string) => vo
         </div>
 
         <address className="footer-contact">
-          <p className="footer-section-label">NCGSA</p>
-          <h2>National Center of GIS and Space Applications</h2>
-          <p>Institute of Space Technology</p>
+          <p className="footer-section-label">Contact</p>
           <span>
             <MapPin aria-hidden="true" size={18} />
-            1, Islamabad Highway, Islamabad 44000
+            1, Islamabad Expressway, Islamabad 44000
+          </span>
+          <span>
+            <Phone aria-hidden="true" size={18} />
+            (051) 9075799
           </span>
           <a href={FOOTER_LINKS.ncgsaLinkedin} target="_blank" rel="noreferrer">
             <Linkedin aria-hidden="true" size={18} />
@@ -1652,7 +1712,6 @@ function InstitutionalFooter({ onNavigate }: { onNavigate: (section: string) => 
   }
 
   const quickLinks = [
-    { label: "Overview", section: "overview" },
     { label: "Sun", section: "layer-sun" },
     { label: "Solar Wind & IMF", section: "layer-solar-wind" },
     { label: "Geomagnetic Field", section: "layer-geomagnetic" },
@@ -1674,15 +1733,10 @@ function InstitutionalFooter({ onNavigate }: { onNavigate: (section: string) => 
 
       <div className="footer-body-shell">
         <div className="footer-content">
-          <section className="footer-panel footer-identity" aria-labelledby="footer-observatory-title">
-            <p className="footer-section-label">GNSS Research Lab</p>
-            <h2 id="footer-observatory-title">NCGSA Space Weather Observatory</h2>
-            <a className="footer-contact-row" href={FOOTER_LINKS.gnssWebsite} target="_blank" rel="noreferrer">
-              <span className="footer-social-icon">
-                <Globe2 aria-hidden="true" size={20} />
-              </span>
-              GNSS Research Lab Website
-            </a>
+          <section className="footer-panel footer-link-group" aria-labelledby="footer-gnss-title">
+            <p className="footer-section-label" id="footer-gnss-title">GNSS Research Lab · NCGSA</p>
+            <h2>NCGSA Space Weather Observatory</h2>
+            <p className="footer-section-label footer-link-label">GNSS</p>
             <div className="footer-socials footer-identity-socials" aria-label="GNSS social links">
               <a href={FOOTER_LINKS.gnssLinkedin} target="_blank" rel="noreferrer">
                 <span className="footer-social-icon">
@@ -1690,16 +1744,24 @@ function InstitutionalFooter({ onNavigate }: { onNavigate: (section: string) => 
                 </span>
                 LinkedIn
               </a>
+              <a href={FOOTER_LINKS.gnssWebsite} target="_blank" rel="noreferrer">
+                <span className="footer-social-icon">
+                  <Globe2 aria-hidden="true" size={20} />
+                </span>
+                Website
+              </a>
             </div>
           </section>
 
-          <address className="footer-panel footer-contact">
+          <address className="footer-panel footer-contact footer-link-group">
             <p className="footer-section-label">NCGSA</p>
-            <h2>National Center of GIS and Space Applications</h2>
-            <p className="footer-affiliation">Institute of Space Technology</p>
             <span className="footer-contact-row">
               <MapPin aria-hidden="true" size={20} />
-              1, Islamabad Highway, Islamabad 44000
+              1, Islamabad Expressway, Islamabad 44000
+            </span>
+            <span className="footer-contact-row">
+              <Phone aria-hidden="true" size={20} />
+              (051) 9075799
             </span>
             <div className="footer-socials" aria-label="NCGSA social links">
               <a href={FOOTER_LINKS.ncgsaLinkedin} target="_blank" rel="noreferrer">
@@ -1729,7 +1791,6 @@ function InstitutionalFooter({ onNavigate }: { onNavigate: (section: string) => 
 
         <div className="footer-bottom">
           <span>© 2026 NCGSA Space Weather Observatory</span>
-          <span className="footer-quote">"Somewhere, something incredible is waiting to be known." - Carl Sagan</span>
         </div>
       </div>
     </footer>
@@ -1963,13 +2024,14 @@ function Dashboard({
   onGoHome: () => void;
   onToggleTheme: () => void;
 }) {
-  const { summary, impacts, solarWind, magneticField, kp, scales, alerts, events, solarActivity, glotec, sourceHealth } = data;
+  const { summary, impacts, solarWind, magneticField, kp, dst, scales, alerts, events, solarActivity, glotec, sourceHealth } = data;
   const activeAlerts = alerts.alerts.filter((alert) => alert.status === "active");
   const latestOverviewField = magneticField.data.at(-1);
   const overviewBz = latestOverviewField?.bzGsmNt ?? summary.bz;
-  const initialParentSection = SUBSECTION_PARENT[initialSection] ?? initialSection;
+  const normalizedInitialSection = initialSection === "overview" ? DEFAULT_OBSERVATORY_SECTION : initialSection;
+  const initialParentSection = SUBSECTION_PARENT[normalizedInitialSection] ?? normalizedInitialSection;
   const [selectedSection, setSelectedSection] = useState(initialParentSection);
-  const [activeSubsection, setActiveSubsection] = useState<string | null>(SUBSECTION_PARENT[initialSection] ? initialSection : null);
+  const [activeSubsection, setActiveSubsection] = useState<string | null>(SUBSECTION_PARENT[normalizedInitialSection] ? normalizedInitialSection : null);
   const [openMenuKeys, setOpenMenuKeys] = useState(LAYER_MENU_KEYS);
   const [dashboardNow, setDashboardNow] = useState(() => new Date());
   const isDarkMode = themeMode === "dark";
@@ -1987,7 +2049,6 @@ function Dashboard({
     </span>
   );
   const menuItems: MenuProps["items"] = [
-    { key: "overview", icon: <Activity size={17} />, label: "Overview" },
     {
       key: "layer-sun",
       icon: <Sun size={17} />,
@@ -1995,6 +2056,7 @@ function Dashboard({
       children: [
         { key: "overview-1-xray", className: "mission-subitem", label: "X-ray Flux" },
         { key: "overview-1-flares", className: "mission-subitem", label: "Solar Flares" },
+        { key: "overview-1-protons", className: "mission-subitem", label: "Proton Flux" },
         { key: "overview-1-sunspots", className: "mission-subitem", label: "Sunspots" },
         { key: "overview-1-cme", className: "mission-subitem", label: "Coronal Mass Ejections" },
         { key: "overview-1-imagery", className: "mission-subitem", label: "Solar Imagery" }
@@ -2049,18 +2111,19 @@ function Dashboard({
   ];
 
   useEffect(() => {
-    setSelectedSection(SUBSECTION_PARENT[initialSection] ?? initialSection);
-    setActiveSubsection(SUBSECTION_PARENT[initialSection] ? initialSection : null);
+    const normalizedSection = initialSection === "overview" ? DEFAULT_OBSERVATORY_SECTION : initialSection;
+    setSelectedSection(SUBSECTION_PARENT[normalizedSection] ?? normalizedSection);
+    setActiveSubsection(SUBSECTION_PARENT[normalizedSection] ? normalizedSection : null);
   }, [initialSection]);
 
   useEffect(() => {
     window.requestAnimationFrame(() => {
       const target = activeSubsection ? document.getElementById(activeSubsection) : null;
       if (target && typeof target.scrollIntoView === "function") {
-        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        target.scrollIntoView({ behavior: "auto", block: "start" });
         return;
       }
-      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     });
   }, [activeSubsection, selectedSection]);
 
@@ -2070,10 +2133,11 @@ function Dashboard({
   }, []);
 
   function navigateToSection(section: string) {
-    const parent = SUBSECTION_PARENT[section] ?? section;
+    const normalizedSection = section === "overview" ? DEFAULT_OBSERVATORY_SECTION : section;
+    const parent = SUBSECTION_PARENT[normalizedSection] ?? normalizedSection;
     setSelectedSection(parent);
-    setActiveSubsection(SUBSECTION_PARENT[section] ? section : null);
-    window.history.pushState({}, "", observatoryHref(section));
+    setActiveSubsection(SUBSECTION_PARENT[normalizedSection] ? normalizedSection : null);
+    window.history.pushState({}, "", observatoryHref(normalizedSection));
   }
 
   function changeOpenMenuKeys(keys: string[]) {
@@ -2101,15 +2165,8 @@ function Dashboard({
       </Sider>
       <Layout className="mission-main">
         <Header className="mission-header">
-          <div className={selectedSection === "overview" ? "mission-header-title mission-header-title-home" : "mission-header-title"}>
+          <div className="mission-header-title">
             <Title level={1}>{headerTitle}</Title>
-            {selectedSection === "overview" ? (
-              <div className="mission-header-affiliations" aria-label="Institutional affiliations">
-                {HEADER_AFFILIATIONS.map((affiliation) => (
-                  <p key={affiliation}>{affiliation}</p>
-                ))}
-              </div>
-            ) : null}
           </div>
           <Space className="topbar-controls" wrap>
             <TimeDropdown now={dashboardNow} />
@@ -2143,6 +2200,7 @@ function Dashboard({
               solarWind={solarWind}
               magneticField={magneticField}
               kp={kp}
+              dst={dst}
               scales={scales}
               alerts={activeAlerts}
               events={events}
@@ -2214,6 +2272,7 @@ function OverviewOnePortal({
   solarWind,
   magneticField,
   kp,
+  dst,
   scales,
   alerts,
   events,
@@ -2225,6 +2284,7 @@ function OverviewOnePortal({
   solarWind: SolarWindResponse;
   magneticField: MagneticFieldResponse;
   kp: KpResponse;
+  dst: DstResponse;
   scales: ScalesResponse;
   alerts: AlertRecord[];
   events: EventsResponse;
@@ -2282,7 +2342,7 @@ function OverviewOnePortal({
         <OverviewOneBlock id="overview-1-geomagnetic" icon={Magnet} title="Geomagnetic Field" eyebrow="Storm context">
           <OverviewOneFact label="Geomagnetic Activity" value={summary.condition} />
           <OverviewOneFact id="overview-1-kp" label="Kp Index" value={kp.current === null ? "Unavailable" : `Kp ${kp.current.toFixed(2)}`} />
-          <OverviewOneFact id="overview-1-dst" label="Dst Index" value="Connected in data layer" />
+          <OverviewOneFact id="overview-1-dst" label="Dst Index" value={formatDstValue(dst.current)} />
         </OverviewOneBlock>
 
         <OverviewOneBlock id="overview-1-tec" icon={Satellite} title="Ionosphere" eyebrow="TEC and navigation">
@@ -2334,6 +2394,7 @@ function buildObservatoryLayerCards({
   solarWind,
   magneticField,
   kp,
+  dst,
   scales,
   alerts,
   events,
@@ -2346,6 +2407,7 @@ function buildObservatoryLayerCards({
   solarWind: SolarWindResponse;
   magneticField: MagneticFieldResponse;
   kp: KpResponse;
+  dst: DstResponse;
   scales: ScalesResponse;
   alerts: AlertRecord[];
   events: EventsResponse;
@@ -2401,10 +2463,10 @@ function buildObservatoryLayerCards({
       icon: Magnet,
       image: "/landing/hero-magnetosphere.svg",
       value: kp.current === null ? "Kp unavailable" : `Kp ${kp.current.toFixed(2)}`,
-      detail: "Current geomagnetic condition, Kp index, and Dst storm-intensity placeholder.",
+      detail: "Current geomagnetic condition, Kp index, and Dst storm-intensity context.",
       links: [
         { key: "overview-1-kp", label: "Kp Index", value: kp.current === null ? "Unavailable" : `Kp ${kp.current.toFixed(2)}`, detail: "Planetary K index on a fixed 0 to 9 scale." },
-        { key: "overview-1-dst", label: "Dst Index", value: "Data layer ready", detail: "Ring-current storm intensity placeholder." }
+        { key: "overview-1-dst", label: "Dst Index", value: formatDstValue(dst.current), detail: dst.lastUpdated ? `Updated ${formatDateTime(dst.lastUpdated)} UTC.` : "Ring-current storm intensity." }
       ]
     },
     {
@@ -2501,6 +2563,7 @@ function NotebookTabPage({
   solarWind,
   magneticField,
   kp,
+  dst,
   scales,
   alerts,
   events,
@@ -2516,6 +2579,7 @@ function NotebookTabPage({
   solarWind: SolarWindResponse;
   magneticField: MagneticFieldResponse;
   kp: KpResponse;
+  dst: DstResponse;
   scales: ScalesResponse;
   alerts: AlertRecord[];
   events: EventsResponse;
@@ -2540,12 +2604,22 @@ function NotebookTabPage({
     primarySatellite: null,
     data: []
   };
+  const protonFlux = solarActivity.protonFlux ?? {
+    source: "NOAA_SWPC_GOES_PROTONS",
+    lastUpdated: null,
+    freshness: "unavailable" as Freshness,
+    fluxPfu: null,
+    energy: ">=10 MeV",
+    satellite: null,
+    data: []
+  };
   const layerCards = buildObservatoryLayerCards({
     summary,
     impacts,
     solarWind,
     magneticField,
     kp,
+    dst,
     scales,
     alerts,
     events,
@@ -2606,6 +2680,13 @@ function NotebookTabPage({
         </>
       )
     },
+    "overview-1-protons": {
+      eyebrow: "Sun",
+      title: "Proton Flux",
+      icon: Zap,
+      summary: "Solar radiation storm scale context from the live >10 MeV proton channel.",
+      body: <ProtonFluxMiniCards protonFlux={protonFlux} sScale={summary.sScale} />
+    },
     "overview-1-sunspots": {
       eyebrow: "Sun",
       title: "Sunspots",
@@ -2664,8 +2745,8 @@ function NotebookTabPage({
       eyebrow: "Geomagnetic",
       title: "Dst Index",
       icon: Gauge,
-      summary: "Dst disturbance index placeholder for ring-current storm intensity.",
-      body: <OverviewOneMiniCard title="Dst status" value="Connected in data layer" detail="Reserved for live Dst readings when the source is available." />
+      summary: "Dst disturbance index for ring-current storm intensity.",
+      body: <DstPanel dst={dst} />
     },
     "overview-1-tec": {
       eyebrow: "Ionosphere",
@@ -2721,7 +2802,12 @@ function NotebookTabPage({
       title: "Space Weather Scales",
       icon: Gauge,
       summary: "Reference scale cards for geomagnetic, radio blackout, and radiation storm categories.",
-      body: <ScalesPanel scales={scales} />
+      body: (
+        <>
+          <ProtonFluxMiniCards protonFlux={protonFlux} sScale={summary.sScale} />
+          <ScalesPanel scales={scales} />
+        </>
+      )
     },
     "overview-1-glossary": {
       eyebrow: "Glossary",
@@ -2811,6 +2897,7 @@ function NotebookTabPage({
             solarWind={solarWind}
             magneticField={magneticField}
             kp={kp}
+            dst={dst}
             scales={scales}
             alerts={alerts}
             events={events}
@@ -2823,10 +2910,15 @@ function NotebookTabPage({
       }
     : pages[section] ?? pages["overview-1-xray"];
   const Icon = page.icon;
+  const accentSection = SUBSECTION_PARENT[section] ?? section;
+  const layerAccent = LANDING_CARDS.find((card) => card.section === accentSection)?.accent;
 
   return (
     <section className="focused-page notebook-tab-page" aria-labelledby="notebook-tab-title">
-      <div className="overview-one-hero notebook-tab-hero">
+      <div
+        className="overview-one-hero notebook-tab-hero"
+        style={layerAccent ? ({ "--layer-accent": layerAccent } as CSSProperties) : undefined}
+      >
         <h2 id="notebook-tab-title">
           <Icon aria-hidden="true" size={28} /> {page.title}
         </h2>
@@ -2848,6 +2940,7 @@ function LayerDetailPage({
   solarWind,
   magneticField,
   kp,
+  dst,
   scales,
   alerts,
   events,
@@ -2864,6 +2957,7 @@ function LayerDetailPage({
   solarWind: SolarWindResponse;
   magneticField: MagneticFieldResponse;
   kp: KpResponse;
+  dst: DstResponse;
   scales: ScalesResponse;
   alerts: AlertRecord[];
   events: EventsResponse;
@@ -2893,6 +2987,7 @@ function LayerDetailPage({
             <EventSummaryList emptyText="No flare events are active in this window." events={events.events.filter((event) => event.type === "flare")} title="Flare events" />
           </>
         ))}
+        {layerSection("overview-1-protons", "Proton Flux", <ProtonFluxMiniCards protonFlux={solarActivity.protonFlux} sScale={summary.sScale} />)}
         {layerSection("overview-1-sunspots", "Sunspots", <SunspotCyclePanel solarActivity={solarActivity} />)}
         {layerSection("overview-1-cme", "Coronal Mass Ejections", <EventTimelinePanel events={events} initialFilter="cme" title="CME event timeline" />)}
         {layerSection("overview-1-imagery", "Solar Imagery", <SolarImageryGallery solarActivity={solarActivity} />)}
@@ -2900,6 +2995,7 @@ function LayerDetailPage({
     ),
     "layer-solar-wind": (
       <>
+        <SolarWindAllInOnePanel magneticField={magneticField} solarWind={solarWind} />
         {layerSection("overview-1-plasma", "Solar Wind Plasma", <SolarWindPanel summary={summary} solarWind={solarWind} />)}
         {layerSection("overview-1-imf", "IMF Bz + Bt", <MagneticFieldPanel magneticField={magneticField} />)}
       </>
@@ -2907,7 +3003,7 @@ function LayerDetailPage({
     "layer-geomagnetic": (
       <>
         {layerSection("overview-1-kp", "Kp Index", <KpPanel kp={kp} />)}
-        {layerSection("overview-1-dst", "Dst Index", <OverviewOneMiniCard title="Dst status" value="Connected in data layer" detail="Reserved for live Dst readings when the source is available." />)}
+        {layerSection("overview-1-dst", "Dst Index", <DstPanel dst={dst} />)}
       </>
     ),
     "layer-ionosphere": (
@@ -2979,18 +3075,7 @@ function OverviewVisualPanels({
 
   return (
     <div className="overview-visual-grid" aria-label="Main dashboard overview visuals">
-      <section className="panel overview-visual-panel overview-visual-panel-wide" aria-labelledby="overview-combined-wind-title">
-        <div className="overview-visual-heading">
-          <div>
-            <h3 id="overview-combined-wind-title">Solar Wind All-in-One Monitor</h3>
-            <p>
-              IMF Bz/Bt, density, speed, and temperature aligned on one time view for fast comparison.
-            </p>
-          </div>
-          <Button type="default" onClick={() => onNavigate("layer-solar-wind")}>Open Solar Wind</Button>
-        </div>
-        <SolarWindCombinedChart solarWind={solarWind} magneticField={magneticField} />
-      </section>
+      <SolarWindAllInOnePanel magneticField={magneticField} onNavigate={onNavigate} solarWind={solarWind} />
 
       <section className="panel overview-visual-panel overview-visual-panel-wide" aria-labelledby="overview-xray-title">
         <div className="overview-visual-heading">
@@ -3070,6 +3155,21 @@ function OverviewVisualPanels({
         />
       </section>
     </div>
+  );
+}
+
+function SolarWindAllInOnePanel({
+  solarWind,
+  magneticField
+}: {
+  solarWind: SolarWindResponse;
+  magneticField: MagneticFieldResponse;
+  onNavigate?: (section: string) => void;
+}) {
+  return (
+    <section className="panel overview-visual-panel overview-visual-panel-wide" aria-label="Solar wind and IMF aligned monitor">
+      <SolarWindCombinedChart solarWind={solarWind} magneticField={magneticField} />
+    </section>
   );
 }
 
@@ -3698,13 +3798,14 @@ function SunspotCyclePanel({ solarActivity }: { solarActivity: SolarActivityResp
     high75: point.high75Ssn
   }))].sort((left, right) => left.month.localeCompare(right.month));
   const [zoomWindow, setZoomWindow] = useState<{ start: number; end: number } | null>(null);
-  const visibleData = zoomWindow ? chartData.slice(zoomWindow.start, zoomWindow.end + 1) : chartData;
+  const visibleData = downsampleSeries(zoomWindow ? chartData.slice(zoomWindow.start, zoomWindow.end + 1) : chartData, 720);
   const isZoomed = zoomWindow !== null;
   const latestObserved = [...observed].reverse().find((point) => point.ssn !== null);
   const latestSmoothed = [...observed].reverse().find((point) => point.smoothedSsn !== null);
   const firstPrediction = predicted.find((point) => point.predictedSsn !== null);
   const handleWheelZoom = (event: WheelEvent<HTMLDivElement>) => {
     if (chartData.length < 4) return;
+    if (!event.ctrlKey) return;
 
     event.preventDefault();
     const currentStart = zoomWindow?.start ?? 0;
@@ -3738,7 +3839,7 @@ function SunspotCyclePanel({ solarActivity }: { solarActivity: SolarActivityResp
         <OverviewOneMiniCard title="Prediction start" value={firstPrediction?.predictedSsn === null || firstPrediction?.predictedSsn === undefined ? "Unavailable" : firstPrediction.predictedSsn.toFixed(1)} detail={firstPrediction ? `Forecast from ${formatSolarCycleMonth(firstPrediction.month)}` : "Prediction pending."} />
       </div>
       <div className="sunspot-chart-actions">
-        <span>{isZoomed ? `${visibleData.length} months in view` : "Scroll on chart to zoom"}</span>
+        <span>{isZoomed ? `${visibleData.length} months in view` : "Ctrl + scroll on chart to zoom"}</span>
         <button type="button" onClick={() => setZoomWindow(null)} disabled={!isZoomed}>
           Reset zoom
         </button>
@@ -3746,7 +3847,7 @@ function SunspotCyclePanel({ solarActivity }: { solarActivity: SolarActivityResp
       <div
         className="sunspot-cycle-chart"
         role="img"
-        aria-label="Solar cycle sunspot number chart with observed values and predicted range. Use mouse wheel to zoom in and out."
+        aria-label="Solar cycle sunspot number chart with observed values and predicted range. Use Control plus mouse wheel to zoom in and out."
         onWheel={handleWheelZoom}
       >
         <ResponsiveContainer width="100%" height={420}>
@@ -3842,6 +3943,184 @@ function OverviewOneMiniCard({ id, title, value, detail }: { id?: string; title:
   );
 }
 
+function ProtonFluxMiniCards({
+  protonFlux,
+  sScale
+}: {
+  protonFlux: SolarActivityResponse["protonFlux"];
+  sScale: string;
+}) {
+  const value = typeof protonFlux.fluxPfu === "number" ? `${protonFlux.fluxPfu.toFixed(2)} pfu` : "Unavailable";
+  const updated = protonFlux.lastUpdated ? `${formatDateTime(protonFlux.lastUpdated)} UTC` : "Update pending";
+  const satellite = protonFlux.satellite === null || protonFlux.satellite === undefined ? "Unknown satellite" : `Satellite ${protonFlux.satellite}`;
+
+  return (
+    <>
+      <div className="overview-one-card-grid three">
+        <OverviewOneMiniCard title=">10 MeV proton flux" value={value} detail="Live integral proton channel used for S-scale awareness." />
+        <OverviewOneMiniCard title="S scale" value={sScale} detail="Solar radiation storm scale derived from proton-flux thresholds." />
+        <OverviewOneMiniCard title="Proton update" value={updated} detail={`${satellite} · ${protonFlux.energy}`} />
+      </div>
+      <ProtonFluxChart protonFlux={protonFlux} />
+    </>
+  );
+}
+
+function DstPanel({ dst }: { dst: DstResponse }) {
+  const recentRows = dst.data.slice(-8).reverse();
+  const minimum = dst.data.reduce<number | null>((lowest, point) => {
+    if (lowest === null || point.value < lowest) return point.value;
+    return lowest;
+  }, null);
+  const updated = dst.lastUpdated ? `${formatDateTime(dst.lastUpdated)} UTC` : "Unavailable";
+
+  return (
+    <>
+      <div className="overview-one-card-grid three">
+        <OverviewOneMiniCard title="Current Dst" value={formatDstValue(dst.current)} detail={dstCondition(dst.current)} />
+        <OverviewOneMiniCard title="Minimum Dst" value={formatDstValue(minimum)} detail={`${dst.data.length} hourly points loaded.`} />
+        <OverviewOneMiniCard title="Updated" value={updated} detail={`${dst.freshness} data freshness.`} />
+      </div>
+      <TelemetryTable
+        caption="Recent Dst readings"
+        columns={["Time", "Dst"]}
+        rows={recentRows.map((point) => [formatDateTime(point.timestamp), formatDstValue(point.value)])}
+      />
+    </>
+  );
+}
+
+function ProtonFluxChart({ protonFlux }: { protonFlux: SolarActivityResponse["protonFlux"] }) {
+  const [zoomPreset, setZoomPreset] = useState<"6h" | "1d" | "3d" | "7d">("3d");
+  const channelKeys = [
+    { energy: ">=10 MeV", key: "mev10", label: ">= 10 MeV", color: "#ef4444" },
+    { energy: ">=50 MeV", key: "mev50", label: ">= 50 MeV", color: "#2563eb" },
+    { energy: ">=100 MeV", key: "mev100", label: ">= 100 MeV", color: "#22c55e" },
+    { energy: ">=500 MeV", key: "mev500", label: ">= 500 MeV", color: "#f59e0b" }
+  ] as const;
+  const rows = new Map<string, Record<string, string | number | null>>();
+
+  protonFlux.data.forEach((point) => {
+    const channel = channelKeys.find((item) => item.energy === point.energy);
+    if (!channel) return;
+    const existing = rows.get(point.timestamp) ?? { timestamp: point.timestamp };
+    existing[channel.key] = point.fluxPfu && point.fluxPfu > 0 ? point.fluxPfu : null;
+    rows.set(point.timestamp, existing);
+  });
+
+  const chartData = Array.from(rows.values()).sort((left, right) => {
+    return Date.parse(String(left.timestamp)) - Date.parse(String(right.timestamp));
+  });
+  const latestTime = Date.parse(String(chartData.at(-1)?.timestamp ?? ""));
+  const presetHours = { "6h": 6, "1d": 24, "3d": 72, "7d": 168 } as const;
+  const visibleSince = Number.isFinite(latestTime) ? latestTime - presetHours[zoomPreset] * 60 * 60 * 1000 : 0;
+  const visibleData = chartData.filter((row) => Date.parse(String(row.timestamp)) >= visibleSince);
+  const activeData = downsampleSeries(visibleData.length > 0 ? visibleData : chartData, 900);
+
+  if (chartData.length === 0) {
+    return <ChartEmptyState title="Proton flux unavailable" detail="The live proton series is not available right now." />;
+  }
+
+  return (
+    <section className="proton-chart-card" aria-labelledby="proton-chart-title">
+      <div className="xray-chart-toolbar">
+        <span id="proton-chart-title">GOES Proton Flux (5-minute data)</span>
+        <div className="xray-preset-controls" aria-label="Proton flux zoom range">
+          {(["6h", "1d", "3d", "7d"] as const).map((preset) => (
+            <button
+              className={zoomPreset === preset ? "active" : ""}
+              key={preset}
+              type="button"
+              onClick={() => setZoomPreset(preset)}
+            >
+              {preset === "1d" ? "1 Day" : preset === "3d" ? "3 Day" : preset === "7d" ? "7 Day" : "6 Hour"}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="proton-chart-stage">
+        <ResponsiveContainer width="100%" height={430}>
+          <RechartsLineChart data={activeData} margin={{ top: 28, right: 28, bottom: 42, left: 22 }}>
+            <CartesianGrid stroke="rgba(148, 163, 184, 0.2)" strokeDasharray="4 8" />
+            <XAxis
+              dataKey="timestamp"
+              minTickGap={42}
+              tick={{ fill: "var(--muted)", fontSize: 12 }}
+              tickFormatter={(value) => formatDateTime(String(value)).replace(",", "")}
+            />
+            <YAxis
+              scale="log"
+              domain={[0.01, 1000000]}
+              ticks={[0.01, 0.1, 1, 10, 100, 1000, 10000, 100000, 1000000]}
+              allowDataOverflow
+              tick={{ fill: "var(--muted)", fontSize: 12 }}
+              tickFormatter={(value) => `10^${Math.round(Math.log10(Number(value)))}`}
+              label={{ value: "particles cm^-2 s^-1 sr^-1", angle: -90, position: "insideLeft", fill: "var(--muted)" }}
+            />
+            <ReferenceLine y={10} stroke="#ef4444" strokeDasharray="7 5" label={{ value: "S1 >=10 MeV", fill: "#ef4444", position: "insideTopLeft" }} />
+            <ReferenceLine y={100} stroke="rgba(239, 68, 68, 0.58)" strokeDasharray="7 5" />
+            <ReferenceLine y={1000} stroke="rgba(239, 68, 68, 0.42)" strokeDasharray="7 5" />
+            <ReferenceLine y={10000} stroke="rgba(239, 68, 68, 0.3)" strokeDasharray="7 5" />
+            <ReferenceLine y={100000} stroke="rgba(239, 68, 68, 0.22)" strokeDasharray="7 5" />
+            <ReferenceLine y={1} stroke="#22c55e" strokeDasharray="5 5" label={{ value: ">=100 MeV alert", fill: "#22c55e", position: "insideBottomLeft" }} />
+            <RechartsTooltip content={<ProtonFluxTooltip channels={channelKeys} />} />
+            {channelKeys.map((channel) => (
+              <Line
+                key={channel.key}
+                type="monotone"
+                dataKey={channel.key}
+                dot={false}
+                stroke={channel.color}
+                strokeWidth={2}
+                connectNulls
+                isAnimationActive={false}
+              />
+            ))}
+          </RechartsLineChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="proton-channel-legend">
+        {channelKeys.map((channel) => (
+          <span key={channel.key}><i style={{ background: channel.color }} />{channel.label}</span>
+        ))}
+        <span><i style={{ background: "#ef4444" }} />10 pfu S1 threshold</span>
+        <span><i style={{ background: "#22c55e" }} />1 pfu &gt;=100 MeV alert</span>
+      </div>
+      <p className="instrument-note">
+        The S scale is based on the integral proton flux at energies greater than 10 MeV. The marked threshold at
+        10 pfu is the S1 solar radiation storm level.
+      </p>
+    </section>
+  );
+}
+
+function ProtonFluxTooltip({
+  active,
+  payload,
+  label,
+  channels
+}: {
+  active?: boolean;
+  payload?: Array<{ dataKey?: string | number; value?: number | string | null }>;
+  label?: string;
+  channels: ReadonlyArray<{ key: string; label: string; color: string }>;
+}) {
+  if (!active || !payload?.length) return null;
+  const values = new Map(payload.map((item) => [String(item.dataKey), item.value]));
+
+  return (
+    <div className="xray-tooltip">
+      <strong>{label ? `${formatDateTime(label)} UTC` : "Proton flux"}</strong>
+      {channels.map((channel) => (
+        <span key={channel.key}>
+          <i style={{ background: channel.color }} />
+          {channel.label}: {formatChartNumber(values.get(channel.key))}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function OverviewOneFact({ id, label, value }: { id?: string; label: string; value: string }) {
   return (
     <div id={id} className="overview-one-fact">
@@ -3903,7 +4182,7 @@ function GoesXrayFluxChart({
   const shortVisible = halfToFour.slice(-visibleLength);
   const chartData = useMemo(() => {
     const length = Math.max(longVisible.length, shortVisible.length);
-    return Array.from({ length }, (_unused, index) => {
+    const rawData = Array.from({ length }, (_unused, index) => {
       const longPoint = longVisible[index];
       const shortPoint = shortVisible[index];
       return {
@@ -3917,6 +4196,7 @@ function GoesXrayFluxChart({
         satellite: longPoint?.satellite === null || longPoint?.satellite === undefined ? primarySatellite ?? "" : String(longPoint.satellite)
       };
     });
+    return downsampleSeries(rawData, 1200);
   }, [longVisible, primarySatellite, shortVisible]);
 
   return (
@@ -5768,6 +6048,45 @@ function formatRelativeAge(value: string): string {
 function formatSigned(value: number | null | undefined, unit: string): string {
   if (typeof value !== "number") return "Unavailable";
   return `${value > 0 ? "+" : ""}${value.toFixed(1)} ${unit}`;
+}
+
+function formatDstValue(value: number | null | undefined): string {
+  if (typeof value !== "number") return "Unavailable";
+  return `${value} nT`;
+}
+
+function dstCondition(value: number | null | undefined): string {
+  if (typeof value !== "number") return "Dst value unavailable.";
+  if (value <= -250) return "Extreme ring-current storm intensity.";
+  if (value <= -100) return "Strong geomagnetic storm intensity.";
+  if (value <= -50) return "Moderate storm-time ring current.";
+  if (value <= -30) return "Active geomagnetic disturbance.";
+  return "Quiet to weak ring-current conditions.";
+}
+
+function scaleToStatusLabel(scale: string | null | undefined): string {
+  const value = Number(scale?.slice(1) ?? 0);
+  if (value >= 4) return "Severe";
+  if (value >= 3) return "High";
+  if (value >= 1) return "Moderate";
+  return "Low";
+}
+
+function scaleToSeverityTone(scale: string | null | undefined): SeverityLevel {
+  const value = Number(scale?.slice(1) ?? 0);
+  if (value >= 4) return "severe";
+  if (value >= 3) return "high";
+  if (value >= 1) return "moderate";
+  return "low";
+}
+
+function downsampleSeries<T>(items: T[], maxPoints: number): T[] {
+  if (items.length <= maxPoints) return items;
+  const step = Math.ceil(items.length / maxPoints);
+  const sampled = items.filter((_item, index) => index % step === 0);
+  const last = items.at(-1);
+  if (last && sampled.at(-1) !== last) sampled.push(last);
+  return sampled;
 }
 
 function formatOptional(value: number | null | undefined, unit: string, digits = 0): string {

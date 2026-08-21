@@ -40,6 +40,10 @@ export function createApp({ service = createLiveSpaceWeatherService() }: { servi
     response.json(await service.getKp());
   });
 
+  app.get("/api/dst", async (_request, response) => {
+    response.json(await service.getDst());
+  });
+
   app.get("/api/scales", async (_request, response) => {
     response.json(await service.getScales());
   });
