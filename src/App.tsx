@@ -4852,13 +4852,14 @@ const CONTRIBUTOR_INTERNS = [
   { name: "Mubasir", role: "Research Intern", photo: "/assets/contributors/intern-mubasir.jpeg" }
 ];
 
+const CONTRIBUTOR_SUPERVISOR = {
+  name: "Abdul Muteen",
+  role: "Project Supervisor",
+  focus: "Research Assistant",
+  photo: "/assets/contributors/syed-muhammad-ali.jpeg"
+};
+
 const CONTRIBUTOR_TEAM = [
-  {
-    name: "Abdul Muteen",
-    role: "Research Assistant",
-    focus: "Project Supervisor",
-    photo: "/assets/contributors/syed-muhammad-ali.jpeg"
-  },
   {
     name: "Daniyal Raza",
     role: "Team Lead, NCGSA",
@@ -4870,14 +4871,25 @@ const CONTRIBUTOR_TEAM = [
     role: "Research Associate",
     focus: "Web Developer",
     photo: "/assets/contributors/abdul-muteen.jpg"
+  },
+  {
+    name: "Dr. Najam Abbas",
+    role: "Chairman, NCGSA",
+    focus: "Space applications leadership",
+    photo: "/assets/contributors/advisor-1.png"
+  },
+  {
+    name: "Usama Ahmad",
+    role: "NCGSA Coordinator",
+    focus: "Research coordination",
+    photo: "/assets/contributors/advisor-2.jpg"
+  },
+  {
+    name: "Dr. Abdul Waheed",
+    role: "NCGSA Team",
+    focus: "Space science and systems",
+    photo: "/assets/contributors/dr-abdul-waheed.png"
   }
-];
-
-const CONTRIBUTOR_ADVISORS = [
-  { name: "Dr. Najam Abbas", role: "Chairman, NCGSA", photo: "/assets/contributors/advisor-1.png" },
-  { name: "Usama Ahmad", role: "NCGSA Coordinator", photo: "/assets/contributors/advisor-2.jpg" },
-  { name: "Dr. Imran", role: "Assistant Professor", photo: "/assets/contributors/advisor-3.jpg" },
-  { name: "Dr. Munawar Shah", role: "Assistant Professor", photo: "/assets/contributors/advisor-4.png" }
 ];
 
 const SPACE_WEATHER_SCALE_GROUPS: Array<{
@@ -5033,8 +5045,24 @@ function ContributorsPanel({ compact = false }: { compact?: boolean }) {
       </header>
 
       <div className="contributors-layout">
-        <section className="contributors-lead-section" aria-labelledby="contributors-lead-title">
-          <h3 id="contributors-lead-title">Intern Team</h3>
+        <section className="contributors-lead-section" aria-labelledby="contributors-supervisor-title">
+          <h3 id="contributors-supervisor-title">Project Supervisor</h3>
+          <div className="contributors-supervisor-wrap">
+            <article className="contributors-advisor-card contributors-supervisor-card">
+              <div className="contributor-photo contributor-photo-supervisor">
+                <img src={CONTRIBUTOR_SUPERVISOR.photo} alt={CONTRIBUTOR_SUPERVISOR.name} loading="lazy" />
+              </div>
+              <div>
+                <h4>{CONTRIBUTOR_SUPERVISOR.name}</h4>
+                <p>{CONTRIBUTOR_SUPERVISOR.role}</p>
+                <small>{CONTRIBUTOR_SUPERVISOR.focus}</small>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section className="contributors-lead-section" aria-labelledby="contributors-intern-title">
+          <h3 id="contributors-intern-title">Project Interns</h3>
           <div className="contributors-intern-grid">
             {CONTRIBUTOR_INTERNS.map((intern) => (
               <article className="contributors-intern-card" key={intern.name}>
@@ -5061,24 +5089,6 @@ function ContributorsPanel({ compact = false }: { compact?: boolean }) {
                 <div>
                   <h4>{member.name}</h4>
                   <p>{member.role}</p>
-                  <small>{member.focus}</small>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section aria-labelledby="advisors-title">
-          <h3 id="advisors-title">Specialists & Advisors</h3>
-          <div className="contributors-advisor-grid">
-            {CONTRIBUTOR_ADVISORS.slice(0, 2).map((advisor) => (
-              <article className="contributors-advisor-card" key={advisor.name}>
-                <div className="contributor-photo contributor-photo-advisor">
-                  <img src={advisor.photo} alt={advisor.name} loading="lazy" />
-                </div>
-                <div>
-                  <h4>{advisor.name}</h4>
-                  <p>{advisor.role}</p>
                 </div>
               </article>
             ))}

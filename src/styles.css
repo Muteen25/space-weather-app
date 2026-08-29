@@ -108,6 +108,15 @@
   gap: 16px;
 }
 
+.contributors-supervisor-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.contributors-supervisor-card {
+  width: min(100%, 680px);
+}
+
 .contributors-intern-card,
 .contributors-member-card {
   display: grid;
@@ -149,6 +158,11 @@
 .contributor-photo-advisor {
   width: 92px;
   height: 92px;
+}
+
+.contributor-photo-supervisor {
+  width: 118px;
+  height: 118px;
 }
 
 .contributors-intern-card h4,
